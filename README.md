@@ -1,425 +1,268 @@
-# BGP 异常溯源系统技术指南
+# BGP-TraceX 3.0
 
-本文档是本项目的使用与实现说明，覆盖运行环境、输入输出、核心技术细节、完整操作流程、纠偏机制与实验设计。
+BGP-TraceX 3.0 是一个面向 BGP 异常归因的研究型系统，核心目标不是只判断“有没有异常”，而是输出：
 
----
+- 异常类型：`HIJACK` / `LEAK` / `FORGERY` / `BENIGN`
+- 最可能攻击者 AS
+- 推理链、工具证据和批量告警一致性信息
 
-## 1. 项目目标与范围
+当前版本把系统主线收敛为四部分：
 
-本系统面向 BGP 异常场景（前缀劫持、路由泄露、路径伪造），构建可解释溯源链路：
+1. 真实事件抓取与过滤
+2. RAG 知识库构建
+3. Agent 溯源
+4. 真实 / 模拟实验与绘图
 
-- 观测：抓取真实 BGP updates（RIPE RIS MRT / RIPEstat BGPlay）
-- 关联：融合路径、拓扑、授权等多源信息
-- 推理：LLM 多轮推理 + 工具调用（Tool-Augmented CoT / ReAct）
-- 归因：输出最可能攻击者 AS、状态与置信度
+## 1. 版本说明
 
----
+- 当前版本：`3.0`
+- 版本文件：[`VERSION`](/home/haomin_wang/code/BGP-TraceX---BGP-Anomaly-Trace-Analysis/VERSION)
+- 推荐分支：`haomin`
 
-## 2. 系统架构
+3.0 的主要变化：
 
-```text
-[输入事件配置]
-  data/test_events.json
-          |
-          v
-[Step1 数据抓取与过滤]
-  scripts/step1_collect_events.py
-  -> tools/update_fetcher.py
-  -> tools/ris_mrt_fetcher.py / RIPEstat BGPlay
-          |
-          v
-[事件缓存]
-  data/events/<event_id>/
-  - meta.json
-  - suspicious_updates.json
-  - raw_bgplay.json(可选)
-          |
-          v
-[Agent 溯源]
-  bgp_agent.py
-  - RAG 检索: tools/rag_manager.py
-  - 工具调用: tools/bgp_toolkit.py
-          |
-          v
-[评测与报告]
-  performance_test.py
-  report/forensics/forensics_*.json
-```
+- 批量溯源流程稳定化，默认以 `diagnose_batch()` 为主
+- 新增 `FORGERY` 识别链路
+- 新增模拟基准生成、四方法对比和指标绘图脚本
+- 将生成型资源从版本控制中剥离，统一走 `.gitignore`
 
----
-
-## 3. 运行环境（必要条件）
-
-### 3.1 Python 与系统
-
-- Python 3.10+（建议 3.10/3.11）
-- Linux / macOS / Windows(WSL)
-- 可访问外网（RIPE 数据源 + 模型 API）
-
-### 3.2 Python 依赖
-
-```bash
-pip install openai chromadb sentence-transformers neo4j requests aiofiles tqdm tabulate mrtparse
-```
-
-### 3.3 外部服务
-
-- LLM API：OpenAI 兼容接口
-- RIPE 数据源：
-  - RIS MRT: `https://data.ris.ripe.net/`
-  - BGPlay: `https://stat.ripe.net/data/bgplay/data.json`
-- Neo4j（可选）：增强图拓扑分析
-
-### 3.4 配置项
-
-- 知识库：`config/knowledge_base.json`
-- 向量库目录：`rag_db/`
-- 事件输入：`data/test_events.json`
-
-> 安全建议：API Key 建议改为环境变量，不要硬编码。
-
----
-
-## 4. 目录与关键文件
+## 2. 目录结构
 
 ```text
 .
-├── bgp_agent.py
-├── performance_test.py
+├── bgp_agent.py                         # 核心溯源 Agent
+├── comparative_experiment.py           # M1/M2/M3/M4 对比实验主程序
+├── build_vector_db.py                  # 构建 Chroma 向量库
+├── auto_generator/auto_generator.py    # 生成合成 RAG 案例
 ├── scripts/
-│   ├── step1_collect_events.py
-│   └── run_feasibility_experiment.py
+│   ├── step1_collect_events.py         # 真实事件抓取与过滤
+│   ├── build_rag_from_events.py        # 从 Step1 输出构建真实事件 RAG 语料
+│   ├── run_comparative_real_pipeline.py
+│   ├── run_comparative_synthetic.py
+│   ├── run_synthetic_metrics_experiment.py
+│   ├── generate_benchmark_synthetic_cases.py
+│   ├── plot_real_synthetic_method_figures.py
+│   ├── prepare_top10_high_risk_eval.py
+│   └── run_case_catalog_test.py
 ├── tools/
+│   ├── bgp_toolkit.py                  # path_forensics / authority / forgery / graph 等工具
+│   ├── rag_manager.py
 │   ├── update_fetcher.py
 │   ├── ris_mrt_fetcher.py
-│   ├── rag_manager.py
-│   ├── bgp_toolkit.py
 │   ├── authority.py
-│   └── ...
+│   ├── eval_updates_sample.py
+│   └── project_paths.py
 ├── data/
 │   ├── test_events.json
 │   ├── benchmark_events_real.json
 │   ├── benchmark_synthetic_cases.json
-│   └── events/
-├── report/
-└── 技术指南.md
+│   ├── famous_bgp_events.json
+│   └── case_catalog/
+└── report/
 ```
 
----
+## 3. 环境要求
 
-## 5. 输入规范
+### 3.1 Python
 
-### 5.1 事件输入（Step1）
+- Python `3.10+`
 
-文件：`data/test_events.json`
-
-```json
-[
-  {
-    "prefix": "8.8.8.0/24",
-    "victim": "15169",
-    "attacker": "4761",
-    "start_time": "2014-04-01T08:00:00",
-    "end_time": "2014-04-01T18:00:00",
-    "source": "anomaly"
-  }
-]
-```
-
-字段：
-
-- `prefix`：目标前缀（必填）
-- `victim`：合法 owner AS（必填）
-- `attacker`：真值攻击者（评估用；良性可填 `None`）
-- `start_time/end_time`：时间窗口（ISO8601）
-- `source`：`anomaly` / `benign`
-
-### 5.2 直接测试输入（可选）
-
-- `data/test_cases.json`
-
----
-
-## 6. 输出规范
-
-### 6.1 Step1 输出
-
-目录：`data/events/<event_id>/`
-
-- `meta.json`
-- `suspicious_updates.json`
-- `raw_bgplay.json`（可选）
-
-### 6.2 Agent 输出
-
-目录：`report/forensics/forensics_*.json`
-
-核心字段：
-
-- `target`
-- `rag_context`
-- `rag_diagnostics`（批量纠偏统计：`dominant_ratio/dropped_updates/low_consensus`）
-- `chain_of_thought`
-- `final_result`
-
----
-
-## 7. 使用流程
-
-### 流程 A：完整闭环（推荐）
+### 3.2 依赖
 
 ```bash
-# Step0 构建RAG
-python auto_generator/auto_generator.py
-python build_vector_db.py
-
-# Step1 抓取与过滤
-python scripts/step1_collect_events.py --input data/test_events.json --source ris_mrt
-
-# Step2 评测
-python performance_test.py --events
+pip install openai chromadb sentence-transformers neo4j requests aiofiles tqdm tabulate mrtparse python-dotenv
 ```
 
-### 路径规范（统一约定）
+### 3.3 环境变量
 
-- 输入数据目录：`data/`
-- 事件缓存输出：`data/events/`
-- 溯源报告输出：`report/forensics/`
-- 评估报告输出：`report/evaluation/`
-
-### 流程 B：快速验证
+复制一份模板：
 
 ```bash
-python bgp_agent.py
-python bgp_agent.py batch
-python performance_test.py
+cp .env.example .env
 ```
 
----
+最少需要：
 
-## 8. 核心技术细节
+```bash
+DEEPSEEK_API_KEY=...
+NEO4J_PASSWORD=neo4j
+```
 
-### 8.1 四步法过滤（观测层）
+说明：
 
-在 `tools/update_fetcher.py` / `tools/ris_mrt_fetcher.py` 中实现：
+- 默认使用 `DeepSeek` 的 OpenAI 兼容接口
+- `Neo4j` 是可选增强，不启动时 `graph_analysis` 会退化
 
-1. 前缀过滤
-2. Origin 校验
-3. 时间窗口约束
-4. Valley-Free 检测
+## 4. 核心能力
 
-### 8.2 RAG 检索策略（关联层）
+### 4.1 Agent
 
-`tools/rag_manager.py` 当前采用：
+[`bgp_agent.py`](/home/haomin_wang/code/BGP-TraceX---BGP-Anomaly-Trace-Analysis/bgp_agent.py)
 
-- 结构化过滤 + 向量召回
-- 两阶段检索（粗召回 + 重排）
-- 动态 top-k
-- 阈值拒答
-- 批量签名聚合（去噪）
+当前支持：
 
-### 8.3 CoT + 工具调用（推理层）
+- 单条 / 批量告警分析
+- RAG 检索
+- 工具调用
+- 三轮复核
+- 批量纠偏 gate
+- `FORGERY` 与 `BENIGN` 快速判定
 
-`bgp_agent.py` 中采用最多 3 轮推理循环：
+### 4.2 工具层
 
-1. LLM 输出 `thought_process + tool_request`
-2. 调用工具（`path_forensics/authority_check/graph_analysis` 等）
-3. 将工具结果回注给 LLM
-4. 输出 `final_decision`
+[`tools/bgp_toolkit.py`](/home/haomin_wang/code/BGP-TraceX---BGP-Anomaly-Trace-Analysis/tools/bgp_toolkit.py)
 
-并约束：RAG 仅作参考，若与工具证据冲突，以工具证据为准。
-
-**当前实现为固定三轮复核模式**：
-
-- 即使第 1 轮已给出阶段性结论，系统仍会继续执行第 2/3 轮复核
-- 报告中会保留三轮大模型思考过程（`chain_of_thought`）用于审计和展示
-
-### 8.4 主要工具能力（归因层）
+主要工具：
 
 - `path_forensics`
 - `authority_check`
+- `forgery_check`
 - `graph_analysis`
-- `topology_check/geo_check/neighbor_check`
+- `topology_check`
+- `geo_check`
+- `neighbor_check`
 
-### 8.5 批量输入纠偏机制（重点）
+### 4.3 RAG
 
-系统在 RAG + Agent 两层实现纠偏。
+[`tools/rag_manager.py`](/home/haomin_wang/code/BGP-TraceX---BGP-Anomaly-Trace-Analysis/tools/rag_manager.py)
 
-#### Gate-1 输入去噪闸门（RAG层）
+当前用于：
 
-- 按签名分组：`(prefix, detected_origin, expected_origin, path_tail)`
-- 当 `total_updates >= 5`，剔除低支持度 singleton 噪声（默认 `count=1 且 ratio<0.1`）
+- 历史案例召回
+- 批量更新去噪
+- 一致性 / dominant ratio 统计
+- 检索重排
 
-#### Gate-2 一致性闸门（RAG层）
+## 5. 典型工作流
 
-- 计算 `dominant_ratio`
-- 低于阈值（默认 0.35）标记 `low_consensus=True`
-- 一致性不足且证据弱时允许输出 `UNCERTAIN`
-
-#### Gate-3 证据冲突闸门（Agent层）
-
-- 解析 `path_forensics` 与 `authority_check` 的主证据
-- 若结论与主证据冲突，触发重判
-- 强制结算仍冲突则降级 `UNCERTAIN`
-
-#### 纠偏示例
-
-10 条 updates：7 条指向 AS9498，2 条指向 AS63293，1 条孤立 AS3356。
-
-1. Gate-1 去噪：剔除 singleton 的 AS3356
-2. Gate-2 一致性：`7/9=0.78`，一致性高
-3. Gate-3 冲突：若模型误判 AS63293，但工具主证据指向 AS9498，则要求重判；仍冲突则输出 `UNCERTAIN`
-
----
-
-## 9. 常用命令速查
+### 5.1 构建默认 RAG 库
 
 ```bash
 python auto_generator/auto_generator.py
 python build_vector_db.py
-python scripts/step1_collect_events.py --input data/test_events.json --source ris_mrt
-python performance_test.py --events
-python bgp_agent.py
-python bgp_agent.py batch
 ```
 
----
-
-## 10. 参数与调优建议
-
-### 10.1 数据抓取
-
-- `tools/ris_mrt_fetcher.py` 的 `MAX_FILES` 控制单次窗口抓取上限
-
-### 10.2 RAG 检索
-
-- `recall_k`：粗召回数量（默认 15）
-- `reject_distance`：低置信拒答阈值（默认 0.75）
-- `noise_min_updates`：启用去噪的最小 update 数（默认 5）
-- `noise_singleton_ratio`：singleton 噪声阈值（默认 0.10）
-- `low_consensus_threshold`：低一致性阈值（默认 0.35）
-
----
-
-## 11. 常见问题与排查
-
-### 11.1 ModuleNotFoundError
+如果要用真实事件摘要重建 RAG：
 
 ```bash
-pip install openai chromadb sentence-transformers neo4j requests aiofiles tqdm tabulate mrtparse
+python scripts/build_rag_from_events.py
+python build_vector_db.py --input data/rag_cases_from_events.jsonl
 ```
 
-### 11.2 RAG 检索不稳定
-
-- 重建向量库：`python build_vector_db.py`
-- 调整 `recall_k/reject_distance`
-- 检查案例数据分布
-
-### 11.3 RIS 无数据
-
-- 检查时间窗口
-- 切换 `--source auto` 或 `--source ripestat`
-
-### 11.4 Neo4j 不可用
-
-- 不影响主流程，可先离线运行
-
----
-
-## 12. 推荐最小复现实验
-
-1. 配置 `data/test_events.json`（至少 3 异常 + 1 良性）
-2. 运行 Step1
-3. 运行 Step2
-4. 检查 `report/` 中 `chain_of_thought` 与 `final_result`
-
----
-
-## 13. 版本说明
-
-- 文档文件：`技术指南.md`
-- 本版关注点：完整环境/输入/输出说明，RAG 检索增强，批量纠偏机制，固定三轮复核说明，真实优先实验流程。
-
----
-
-## 附录A：可行性实验设计（真实事件优先）
-
-### A.1 实验目标
-
-验证系统在多类 BGP 异常事件中的可行性：是否能准确定位攻击者 AS，并在噪声输入下保持稳定。
-
-覆盖类型：`HIJACK/LEAK/BENIGN/FORGERY`。
-
-### A.2 数据集组织
-
-- `data/benchmark_events_real.json`：真实历史事件基准
-- `data/benchmark_synthetic_cases.json`：模拟补充样本
-- `data/case_catalog/`：按类型分类的实验案例库（每类 10 条）
-  - `hijack/cases_10.json`
-  - `leak/cases_10.json`
-  - `forgery/cases_10.json`
-  - `index.json`（real/synthetic 统计与补充原因）
-  - 所有案例统一使用 `context.updates` 数组，支持 1 条或多条 updates 消息
-- `scripts/run_feasibility_experiment.py`：一键实验脚本
-- `scripts/validate_case_catalog.py`：案例库结构与数量校验
-
-### A.3 评测流程
-
-1. 先跑真实事件抓取与评估
-2. 仅统计 `non-fallback` 作为高可信真实评测
-3. 覆盖不足时自动补充模拟样本
-4. 输出统一报告（准确率/不确定率/时延/类型覆盖）
-
-### A.4 一键命令
+### 5.2 抓取真实事件
 
 ```bash
-python scripts/run_feasibility_experiment.py \
-  --real-input data/benchmark_events_real.json \
-  --source auto \
-  --synthetic-input data/benchmark_synthetic_cases.json \
-  --report-out report/evaluation/feasibility_report.json
+python scripts/step1_collect_events.py \
+  --input data/famous_bgp_events.json \
+  --source auto
 ```
 
-分类案例库校验：
+输出落在：
+
+- `data/events/<event_id>/meta.json`
+- `data/events/<event_id>/suspicious_updates.json`
+- `data/events/<event_id>/eval_updates.json`
+
+### 5.3 一键跑真实对比实验
 
 ```bash
-python scripts/validate_case_catalog.py
+python scripts/run_comparative_real_pipeline.py --prepare-top10
 ```
 
-分类案例对照测试（输入攻击者/类型 vs 输出攻击者/类型 + simulation_reason 泄露检查）：
+### 5.4 生成模拟基准
 
 ```bash
-python scripts/run_case_catalog_test.py \
-  --catalog-root data/case_catalog \
-  --types hijack,leak,forgery \
-  --report-out report/evaluation/case_catalog_eval_report.json
+python scripts/generate_benchmark_synthetic_cases.py \
+  --count 50 \
+  --benign-count 15 \
+  --seed 20260427
 ```
 
-常用参数：
+当前默认生成：
 
-- `--min-real-cases 6`
-- `--required-types HIJACK,LEAK,BENIGN`
-- `--disable-synthetic`
+- `50` 条模拟案例
+- 含 `BENIGN` 控制样本
+- `low / medium / high` 三档噪声
 
-### A.5 输出说明
+### 5.5 跑模拟四方法对比
 
-报告文件：`report/evaluation/feasibility_report.json`
+```bash
+python scripts/run_comparative_synthetic.py
+```
 
-关键字段：
+输出：
 
-- `real_stage.summary_non_fallback`
-- `real_stage.non_fallback_coverage`
-- `real_stage.missing_types_non_fallback`
-- `synthetic_stage`
-- `final_evaluation`
+- `report/evaluation/comparative_results_synthetic.json`
 
-### A.6 指标解释
+### 5.6 跑模拟指标实验
 
-- `accuracy`
-- `uncertain_rate`
-- `mean/median/p90_latency_sec`
+```bash
+python scripts/run_synthetic_metrics_experiment.py \
+  --input data/benchmark_synthetic_cases.json \
+  --report-out report/evaluation/synthetic_metrics_report.json
+```
 
-建议汇报展示两组结果：
+输出指标：
 
-- 真实 non-fallback 结果（工程真实性）
-- 融合结果（覆盖完整性）
+- Accuracy
+- FPR
+- Latency
+- Confidence
+- Robustness
+- Error Case Analysis
+
+### 5.7 绘图
+
+```bash
+python scripts/plot_real_synthetic_method_figures.py \
+  --real-json report/evaluation/comparative_results_real.json \
+  --synthetic-json report/evaluation/comparative_results_synthetic.json
+```
+
+输出到：
+
+- `report/evaluation/figures/`
+
+## 6. 当前评测方法
+
+四方法定义：
+
+- `M1`: 完整系统（RAG + LLM + Tools）
+- `M2`: 仅 LLM
+- `M3`: 规则检测
+- `M4`: RAG + LLM（无工具）
+
+模拟实验当前关注：
+
+- 严格准确率：类型 + 攻击者都正确
+- 攻击者归因准确率
+- 误报率 `FPR`
+- 平均时延
+- 置信度与准确率偏差
+- 不同噪声级别下的鲁棒性
+
+## 7. 需要注意的边界
+
+- `Neo4j` 未启动时，图分析不会参与真实推断
+- `FORGERY` 对长尾伪造路径识别更稳定；短尾 `FORGERY/LEAK` 仍可能歧义
+- 本项目是研究原型，不是生产级监控平台
+
+## 8. 版本控制约定
+
+以下内容默认不纳入版本控制：
+
+- `.env` / 本地密钥
+- `rag_db/`
+- `report/evaluation/` 与 `report/forensics/`
+- 生成图片
+- 本地字体文件
+- `data/events/` 抓取缓存
+- `data/rag_cases_from_events.jsonl`
+
+如果需要共享实验结果，建议共享：
+
+- 生成脚本
+- 输入 JSON
+- 最终结论摘要
+
+而不是直接提交本地缓存和大体积资源文件。

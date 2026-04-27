@@ -91,18 +91,20 @@ class BGPAgent:
 1. **Path Forensics**: 对每条 update 提取 Origin，统计哪些 AS 作为可疑 Origin 出现最频繁。
 2. **交叉验证**: 若多条 update 指向同一 AS，则该 AS 嫌疑更大；若相互矛盾，需权衡证据强度。
 3. **Route Leak**: 若 Origin 正确但路径异常，攻击者可能是路径中间的 Leaker。
+4. **Path Forgery / Fake Adjacency**: 若 Origin 正确，但合法 Owner 前反复出现稳定的异常跳点或伪造邻接，应优先考虑 FORGERY。
 
 **可用工具:**
 - `path_forensics`: 对批量 updates 做路径取证，返回每条的分析 + 汇总统计。
 - `graph_analysis`: 查询图谱验证嫌疑人与 Owner 的拓扑关系（可指定某条 update）。
 - `authority_check`: 查询 RPKI 授权（可指定某条 update）。
+- `forgery_check`: 检查 origin 正常场景下是否存在稳定的伪造邻接 / 路径伪造。
 
 **⚠️ 严格输出格式 (JSON):**
 {
     "thought_process": "你的详细推理过程，需考虑多条告警的综合证据...",
     "tool_request": "工具名称字符串" OR null,
     "final_decision": null OR {
-        "status": "MALICIOUS" | "LEAK" | "BENIGN" | "UNCERTAIN",
+        "status": "MALICIOUS" | "LEAK" | "FORGERY" | "BENIGN" | "UNCERTAIN",
         "most_likely_attacker": "ASxxxx" (基于目前告警最可能的攻击者，若无则填 'None'),
         "confidence": "High" | "Medium" | "Low",
         "summary": "综合 X 条告警消息的分析结论，说明为何该 AS 最有可能是攻击者"
@@ -210,6 +212,57 @@ class BGPAgent:
             return counts
         return counts
 
+    @staticmethod
+    def _parse_forgery_batch_output(text):
+        if not text:
+            return {"suspect": "None", "count": 0, "ratio": 0.0, "strong": 0, "verdict": ""}
+        m = re.search(
+            r"forgery_candidate=AS(\d+); count=(\d+); ratio=([0-9.]+); strong=(\d+); .* verdict=([A-Z_]+)",
+            str(text),
+        )
+        if not m:
+            return {"suspect": "None", "count": 0, "ratio": 0.0, "strong": 0, "verdict": ""}
+        return {
+            "suspect": m.group(1),
+            "count": int(m.group(2)),
+            "ratio": float(m.group(3)),
+            "strong": int(m.group(4)),
+            "verdict": m.group(5),
+        }
+
+    @staticmethod
+    def _detect_clean_benign_batch(alert_batch):
+        updates = (alert_batch or {}).get("updates", [])
+        if not updates:
+            return False
+        for u in updates:
+            path = [p for p in str(u.get("as_path", "")).replace(",", " ").split() if p.isdigit()]
+            expected = str(u.get("expected_origin", "")).strip()
+            detected = str(u.get("detected_origin") or (path[-1] if path else "")).strip()
+            if not path or not expected:
+                return False
+            if detected != expected:
+                return False
+            if len(path) > 2:
+                return False
+        return True
+
+    @staticmethod
+    def _likely_forgery_candidate_batch(alert_batch):
+        updates = (alert_batch or {}).get("updates", [])
+        if not updates:
+            return False
+        has_long_tail = False
+        for u in updates:
+            path = [p for p in str(u.get("as_path", "")).replace(",", " ").split() if p.isdigit()]
+            expected = str(u.get("expected_origin", "")).strip()
+            detected = str(u.get("detected_origin") or (path[-1] if path else "")).strip()
+            if not path or not expected or detected != expected:
+                return False
+            if len(path) >= 4:
+                has_long_tail = True
+        return has_long_tail
+
     def _update_tool_evidence(self, evidence, tool_name, tool_output):
         tname = str(tool_name or "").strip().lower()
         evidence["called_tools"].add(tname)
@@ -225,6 +278,15 @@ class BGPAgent:
             invalid_counts = self._parse_authority_batch_output(tool_output)
             for asn, cnt in invalid_counts.items():
                 evidence["rpki_invalid"][asn] = evidence["rpki_invalid"].get(asn, 0) + cnt
+
+        if tname == "forgery_check":
+            fg = self._parse_forgery_batch_output(tool_output)
+            if fg["suspect"] != "None":
+                evidence["forgery_suspect"] = fg["suspect"]
+                evidence["forgery_count"] = fg["count"]
+                evidence["forgery_ratio"] = fg["ratio"]
+                evidence["forgery_strong"] = fg["strong"]
+                evidence["forgery_verdict"] = fg["verdict"]
 
     @staticmethod
     def _dominant_from_counter(counter):
@@ -261,11 +323,38 @@ class BGPAgent:
 
         tool_asn_path, tool_cnt_path, tool_ratio_path = self._dominant_from_counter(evidence["path_suspects"])
         tool_asn_rpki, tool_cnt_rpki, tool_ratio_rpki = self._dominant_from_counter(evidence["rpki_invalid"])
+        forgery_asn = evidence.get("forgery_suspect", "None")
+        forgery_cnt = int(evidence.get("forgery_count", 0) or 0)
+        forgery_ratio = float(evidence.get("forgery_ratio", 0.0) or 0.0)
+        forgery_strong_cnt = int(evidence.get("forgery_strong", 0) or 0)
+        forgery_verdict = str(evidence.get("forgery_verdict", ""))
 
         strong_path = tool_asn_path != "None" and (tool_cnt_path >= 2 or tool_ratio_path >= 0.60)
         strong_rpki = tool_asn_rpki != "None" and (tool_cnt_rpki >= 2 or tool_ratio_rpki >= 0.60)
+        strong_forgery = (
+            forgery_asn != "None"
+            and ((forgery_cnt >= 2 and forgery_ratio >= 0.60) or forgery_strong_cnt >= 2 or forgery_verdict == "FORGERY_STRONG")
+        )
         tools_ready = ("path_forensics" in evidence["called_tools"]) and ("authority_check" in evidence["called_tools"])
-        strong_tools = strong_path or strong_rpki
+        strong_tools = strong_path or strong_rpki or strong_forgery
+
+        if (
+            pred_asn == "None"
+            and status == "UNCERTAIN"
+            and evidence.get("direct_benign", False)
+            and not strong_path
+            and not strong_rpki
+            and not strong_forgery
+        ):
+            return {
+                "action": "accept",
+                "decision": {
+                    "status": "BENIGN",
+                    "most_likely_attacker": "None",
+                    "confidence": "Medium",
+                    "summary": "所有 updates 的 origin 与合法 owner 一致，且仅表现为直连上游传播，未见稳定攻击证据，按良性处理。",
+                },
+            }
 
         # Gate-1: 一致性不足，且工具证据薄弱 -> 不给确定归因
         if low_consensus and not strong_tools:
@@ -292,6 +381,20 @@ class BGPAgent:
                 "action": "revise",
                 "reason": f"authority_check 主证据指向 AS{tool_asn_rpki}，当前结论为 AS{pred_asn}，请解释冲突并重判。",
             }
+        if strong_forgery:
+            if pred_asn not in ("None", forgery_asn):
+                return {
+                    "action": "revise",
+                    "reason": f"forgery_check 主证据指向 AS{forgery_asn}，当前结论为 AS{pred_asn}，请解释冲突并重判。",
+                }
+            if status == "LEAK":
+                fixed = dict(final_decision)
+                fixed["status"] = "FORGERY"
+                fixed["most_likely_attacker"] = f"AS{forgery_asn}"
+                fixed["summary"] = (
+                    f"{fixed.get('summary', '')} 工具证据显示为稳定伪造邻接，按 FORGERY 结案。"
+                ).strip()
+                return {"action": "accept", "decision": fixed}
 
         # Gate-3: 高置信度但只被 RAG 牵引，且与工具主证据冲突
         if (
@@ -354,7 +457,7 @@ class BGPAgent:
 - Target Prefix: {alert_context.get('prefix')}
 - Suspicious AS_PATH: {alert_context.get('as_path')}
 - Detected Origin: {alert_context.get('detected_origin')}
-- Legitimate Owner: {alert_context.get('expected_origin')}
+- Legitimate Owner: {(alert_context.get('expected_origin') or '（观测未提供，请通过 authority_check / RPKI 推断）')}
 """
         messages = [
             {"role": "system", "content": dynamic_prompt},
@@ -484,14 +587,49 @@ class BGPAgent:
         if not updates:
             return {"error": "updates 不能为空", "final_result": None}
 
+        if self._detect_clean_benign_batch(alert_batch):
+            trace = {
+                "target": alert_batch,
+                "start_time": datetime.now().isoformat(),
+                "rag_context": "（直连良性快速判定，未进入 RAG/LLM）",
+                "rag_diagnostics": {
+                    "low_consensus": False,
+                    "dominant_ratio": 1.0,
+                    "total_updates": len(updates),
+                    "kept_updates": len(updates),
+                    "dropped_updates": 0,
+                    "rag_top_attacker": "",
+                    "rag_top_attacker_score": 0.0,
+                },
+                "chain_of_thought": [
+                    {
+                        "round": "precheck",
+                        "thought": "所有 updates 均为合法 origin 且路径长度不超过 2，命中良性快速判定。",
+                        "ai_full_response": None,
+                        "tool_used": "precheck",
+                        "tool_output": "BENIGN_PRECHECK: all updates are direct upstream propagation with valid origin.",
+                    }
+                ],
+                "final_result": {
+                    "status": "BENIGN",
+                    "most_likely_attacker": "None",
+                    "confidence": "Medium",
+                    "summary": "所有 updates 的 origin 与 expected_origin 一致，且仅存在直连上游传播，未发现伪造或泄露迹象。",
+                },
+            }
+            self._save_report(trace, is_batch=True)
+            return trace
+
         if verbose:
             print(f"\n🕵️‍♂️ [Agent] 批量溯源: 共 {len(updates)} 条告警 updates ...")
 
         # --- Phase 1: RAG 知识检索（含批量输入去噪与一致性诊断）---
         try:
             rag_payload = self.rag.search_similar_cases_batch_with_meta(updates, k=2)
+            if not isinstance(rag_payload, dict):
+                rag_payload = {}
             rag_knowledge = rag_payload.get("text", "（未找到相似历史案例）")
-            rag_meta = rag_payload.get("meta", {})
+            rag_meta = rag_payload.get("meta") or {}
             if verbose and "未找到" not in str(rag_knowledge):
                 print(f"📚 [RAG] 已加载历史溯源档案（汇总 {len(updates)} 条 updates 检索）...")
             if verbose:
@@ -533,7 +671,7 @@ class BGPAgent:
 
 【RAG 使用约束】
 - RAG 案例仅作为辅助参考，不能直接当作当前事件事实。
-- 若 RAG 与工具输出（path_forensics / authority_check / graph_analysis）冲突，必须以工具证据为准。
+- 若 RAG 与工具输出（path_forensics / authority_check / forgery_check / graph_analysis）冲突，必须以工具证据为准。
 - RAG 批量纠偏统计: total={rag_meta.get('total_updates', len(updates))}, kept={rag_meta.get('kept_updates', len(updates))}, dropped={rag_meta.get('dropped_updates', 0)}, dominant_ratio={rag_meta.get('dominant_ratio', 1.0):.2f}。
 - 若一致性不足（low_consensus=True），在工具证据不足时应输出 UNCERTAIN，而非强行锁定攻击者。
 
@@ -546,7 +684,7 @@ class BGPAgent:
 """
         messages = [
             {"role": "system", "content": dynamic_prompt},
-            {"role": "user", "content": "请分析上述批量告警，优先调用 path_forensics 与 authority_check 进行交叉验证，再输出 most_likely_attacker 与 confidence。"}
+            {"role": "user", "content": "请分析上述批量告警，优先调用 path_forensics、authority_check 与 forgery_check 进行交叉验证，再输出 most_likely_attacker 与 confidence。"}
         ]
 
         trace = {
@@ -564,7 +702,24 @@ class BGPAgent:
             "path_suspects": {},
             "rpki_invalid": {},
             "parsed_total_updates": 0,
+            "direct_benign": self._detect_clean_benign_batch(alert_batch),
         }
+
+        if self._likely_forgery_candidate_batch(alert_batch):
+            pre_tool = "forgery_check"
+            pre_output = self.toolkit.call_tool(pre_tool, alert_batch, is_batch=True)
+            self._update_tool_evidence(tool_evidence, pre_tool, pre_output)
+            trace["chain_of_thought"].append({
+                "round": "precheck",
+                "thought": "输入满足合法 origin + 长尾异常路径特征，预先执行 forgery_check。",
+                "ai_full_response": None,
+                "tool_used": pre_tool,
+                "tool_output": pre_output,
+            })
+            messages.append({
+                "role": "user",
+                "content": f"【预加载工具结果：forgery_check】\n{pre_output}\n\n请在后续推理中优先判断是否属于 FORGERY，而不是泛化为 LEAK。"
+            })
 
         # --- Phase 3: 推理循环 ---
         for round_idx in range(1, 4):
@@ -678,6 +833,11 @@ class BGPAgent:
                     "tool_used": None,
                     "tool_output": None,
                 })
+
+        if trace["final_result"] is None:
+            trace["final_result"] = self._build_uncertain_decision(
+                "未在限定轮次内形成可靠 final_decision，已降级输出"
+            )
 
         self._save_report(trace, is_batch=True)
         return trace

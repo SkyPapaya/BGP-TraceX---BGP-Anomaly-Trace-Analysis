@@ -59,6 +59,8 @@ def map_expected_to_coarse(event_type: str) -> str:
 
 def map_status_to_coarse(status: str) -> str:
     s = str(status or "").strip().upper()
+    if s == "FORGERY":
+        return "MALICIOUS"
     if s in ("MALICIOUS", "LEAK", "BENIGN", "UNCERTAIN"):
         return s
     return "UNKNOWN"
@@ -70,6 +72,8 @@ def infer_fine_type_from_output(status: str, summary: str) -> str:
 
     if s == "LEAK":
         return "LEAK"
+    if s == "FORGERY":
+        return "FORGERY"
     if s == "BENIGN":
         return "BENIGN"
     if s == "UNCERTAIN":

@@ -22,6 +22,10 @@ BENCHMARK_REAL_FILE = DATA_DIR / "benchmark_events_real.json"
 BENCHMARK_SYNTHETIC_FILE = DATA_DIR / "benchmark_synthetic_cases.json"
 FULL_ATTACK_CASES_FILE = DATA_DIR / "full_attack_cases.jsonl"
 FORENSICS_CASES_FILE = DATA_DIR / "forensics_cases.jsonl"
+# 从 Step1 输出目录生成的 RAG 语料（真实观测摘要）
+RAG_CASES_FROM_EVENTS_FILE = DATA_DIR / "rag_cases_from_events.jsonl"
+# 对比实验默认事件列表（与 famous_bgp_events.json 对齐时可复制或共用）
+COMPARATIVE_EVENTS_FILE = DATA_DIR / "famous_bgp_events.json"
 
 # Input directories
 CASE_CATALOG_DIR = DATA_DIR / "case_catalog"

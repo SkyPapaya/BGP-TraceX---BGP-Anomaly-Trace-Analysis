@@ -10,10 +10,11 @@ import os
 import re
 import tempfile
 import ipaddress
-import requests
 import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Generator
+
+from .curl_fetch import curl_available, curl_download
 
 logger = logging.getLogger("RISMRTFetcher")
 
@@ -169,34 +170,44 @@ def fetch_and_parse(
     if not urls:
         return [], "empty"
 
+    if not curl_available():
+        logger.error("未找到 curl，无法下载 RIS MRT（请安装 curl 并加入 PATH）")
+        return [], "empty"
+
     all_updates = []
     seen = set()
 
     for url in urls:
+        tmp_path = None
         try:
-            resp = requests.get(url, timeout=120, stream=True)
-            if resp.status_code != 200:
-                logger.debug(f"跳过 {url}: HTTP {resp.status_code}")
-                continue
             with tempfile.NamedTemporaryFile(suffix=".gz", delete=False) as tmp:
-                for chunk in resp.iter_content(chunk_size=65536):
-                    tmp.write(chunk)
                 tmp_path = tmp.name
-            try:
-                updates = _parse_mrt_file(tmp_path, prefix)
-                for u in updates:
-                    key = (u.get("prefix"), u.get("as_path"), u.get("raw_timestamp", 0))
-                    if key not in seen:
-                        seen.add(key)
-                        all_updates.append(u)
-            finally:
+            ok, _rc, _body, _err = curl_download(
+                url,
+                output_path=tmp_path,
+                max_time_sec=120,
+                connect_timeout_sec=30,
+            )
+            if not ok:
+                logger.debug("跳过或失败: %s", url)
+                continue
+            if os.path.getsize(tmp_path) == 0:
+                logger.debug("空文件: %s", url)
+                continue
+            updates = _parse_mrt_file(tmp_path, prefix)
+            for u in updates:
+                key = (u.get("prefix"), u.get("as_path"), u.get("raw_timestamp", 0))
+                if key not in seen:
+                    seen.add(key)
+                    all_updates.append(u)
+        except Exception as e:
+            logger.warning("下载/解析 %s 失败: %s", url, e)
+        finally:
+            if tmp_path:
                 try:
                     os.unlink(tmp_path)
                 except OSError:
                     pass
-        except Exception as e:
-            logger.warning(f"下载/解析 {url} 失败: {e}")
-            continue
 
     return all_updates, "ris_mrt" if all_updates else "empty"
 

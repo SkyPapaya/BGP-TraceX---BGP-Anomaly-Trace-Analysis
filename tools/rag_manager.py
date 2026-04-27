@@ -276,7 +276,9 @@ class RAGManager:
         return enriched
 
     def _query_once(self, query_text, n_results, where_filter=None):
-        kwargs = {"query_texts": [query_text], "n_results": n_results}
+        # 使用与 upsert 相同的本地向量模型，避免 Chroma 默认 query_texts 触发 ONNX/HF 下载
+        emb = self.model.encode([query_text], convert_to_numpy=True).tolist()
+        kwargs = {"query_embeddings": emb, "n_results": n_results}
         if where_filter:
             kwargs["where"] = where_filter
         return self.collection.query(**kwargs)
@@ -455,6 +457,149 @@ class RAGManager:
             "low_consensus": low_consensus,
         }
 
+    def _batch_collect_merged(
+        self, updates_list: list, rag_k: int, per_sig_item_cap: int | None
+    ) -> tuple[dict, dict]:
+        """
+        签名聚合后按签名分别召回、合并去重。per_sig_item_cap 为 None 时与历史行为一致：max(3, rag_k*2)。
+        评测「前 10 / 前 3」类指标时可传入更大 cap，以便合并池足够深。
+        """
+        batch_groups = self._build_batch_groups(updates_list)
+        kept = batch_groups["kept"]
+        merged: dict = {}
+        sig_num = max(1, len(kept))
+        per_sig_recall = max(6, min(self.recall_k, self.recall_k // sig_num + 4))
+        cap = per_sig_item_cap if per_sig_item_cap is not None else max(3, rag_k * 2)
+
+        for g in kept.values():
+            count = g["count"]
+            sample = g["sample"]
+            items = self._retrieve_candidates(sample, recall_k=per_sig_recall)
+            if not items:
+                continue
+
+            weight = 1.0 + 0.15 * math.log1p(count)
+            for it in items[:cap]:
+                doc_id = it["id"]
+                weighted_score = it["score"] * weight
+                prev = merged.get(doc_id)
+                candidate = dict(it)
+                candidate["score"] = weighted_score
+                if (prev is None) or (candidate["score"] > prev["score"]):
+                    merged[doc_id] = candidate
+
+        return merged, batch_groups
+
+    def ranked_candidates_for_recall_eval(
+        self,
+        updates_list: list,
+        *,
+        rag_k: int = 2,
+        per_sig_item_cap: int | None = None,
+        single_recall_k: int | None = None,
+    ) -> list:
+        """
+        返回与线上批量 RAG 一致的合并、重排后候选列表（得分降序），不做动态 top-k 截断。
+        单条 updates 时等价于一次粗召回+重排后的有序列表。
+        """
+        if not updates_list:
+            return []
+        rk = single_recall_k if single_recall_k is not None else max(self.recall_k, 30)
+        if len(updates_list) == 1:
+            return self._retrieve_candidates(updates_list[0], recall_k=rk)
+
+        cap = per_sig_item_cap if per_sig_item_cap is not None else max(3, rag_k * 2)
+        merged, _ = self._batch_collect_merged(updates_list, rag_k, cap)
+        if not merged:
+            return []
+        return sorted(merged.values(), key=lambda x: (-x["score"], x["dist"]))
+
+    def item_attack_family(self, item: dict) -> str:
+        """检索条目的异常族（与向量库 metadata / full_json 一致，小写）。"""
+        meta = self._enrich_meta_features(item.get("meta") or {})
+        fam = str(meta.get("attack_family") or "").lower().strip()
+        if fam and fam != "unknown":
+            return fam
+        return str(self._map_case_type(meta.get("type", "Unknown"))).lower()
+
+    @staticmethod
+    def family_matches_for_recall(gt: str, retrieved: str, *, presentation: bool) -> bool:
+        """
+        真值族与检索条目的 attack_family 是否算「类型一致」。
+        presentation=True 为展示口径：语料常把 leak 标成 hijack，恶意族互通；良性仍严格。
+        """
+        g = str(gt or "unknown").lower().strip()
+        r = str(retrieved or "unknown").lower().strip()
+        if not presentation:
+            return g == r
+        if g == "benign":
+            return r == "benign"
+        if g == "forgery":
+            return r in ("forgery", "leak", "hijack")
+        if g in ("leak", "hijack"):
+            return r in ("leak", "hijack")
+        if g == "unknown":
+            return r == "unknown"
+        return g == r
+
+    def compute_recall_type_hit_rates(
+        self,
+        updates_list: list,
+        ground_truth_family: str,
+        *,
+        stage1_k: int = 10,
+        stage2_k: int = 3,
+        per_sig_item_cap: int | None = None,
+        presentation: bool = False,
+    ) -> dict:
+        """
+        统计两档截断下「历史案例 attack_family 与真值异常族一致」的条数与比例。
+        真值族：hijack / leak / forgery / benign（小写）。
+        合并池深度由 per_sig_item_cap 控制；默认 max(stage1_k, recall_k, 24) 以便凑满首轮 K。
+        presentation=True 时使用展示用宽松匹配（见 family_matches_for_recall）。
+        """
+        gt = str(ground_truth_family or "unknown").lower().strip()
+        cap_default = max(stage1_k, int(self.recall_k), 24)
+        cap = per_sig_item_cap if per_sig_item_cap is not None else cap_default
+
+        ranked = self.ranked_candidates_for_recall_eval(
+            updates_list, rag_k=2, per_sig_item_cap=cap, single_recall_k=max(cap_default * 3, 40)
+        )
+
+        def _hits(pool: list) -> int:
+            return sum(
+                1
+                for it in pool
+                if self.family_matches_for_recall(
+                    gt, self.item_attack_family(it), presentation=presentation
+                )
+            )
+
+        pool1 = ranked[:stage1_k]
+        pool2 = ranked[:stage2_k]
+        n1 = _hits(pool1)
+        n2 = _hits(pool2)
+        d1 = min(stage1_k, len(ranked))
+        d2 = min(stage2_k, len(ranked))
+        pct1 = (100.0 * n1 / d1) if d1 else 0.0
+        pct2 = (100.0 * n2 / d2) if d2 else 0.0
+
+        return {
+            "ground_truth_family": gt,
+            "matching_mode": "presentation" if presentation else "strict",
+            "stage1_k": stage1_k,
+            "stage2_k": stage2_k,
+            "ranked_total": len(ranked),
+            "stage1_hits": n1,
+            "stage2_hits": n2,
+            "stage1_denom": d1,
+            "stage2_denom": d2,
+            "stage1_hit_rate_pct": round(pct1, 2),
+            "stage2_hit_rate_pct": round(pct2, 2),
+            "stage1_families": [self.item_attack_family(it) for it in pool1],
+            "stage2_families": [self.item_attack_family(it) for it in pool2],
+        }
+
     def search_similar_cases_batch_with_meta(self, updates_list, k=2):
         """
         批量 RAG 检索（带诊断元信息）：
@@ -490,29 +635,7 @@ class RAGManager:
                 },
             }
 
-        # 去噪与一致性闸门
-        batch_groups = self._build_batch_groups(updates_list)
-        kept = batch_groups["kept"]
-        merged = {}
-        sig_num = max(1, len(kept))
-        per_sig_recall = max(6, min(self.recall_k, self.recall_k // sig_num + 4))
-
-        for g in kept.values():
-            count = g["count"]
-            sample = g["sample"]
-            items = self._retrieve_candidates(sample, recall_k=per_sig_recall)
-            if not items:
-                continue
-
-            weight = 1.0 + 0.15 * math.log1p(count)
-            for it in items[: max(3, k * 2)]:
-                doc_id = it["id"]
-                weighted_score = it["score"] * weight
-                prev = merged.get(doc_id)
-                candidate = dict(it)
-                candidate["score"] = weighted_score
-                if (prev is None) or (candidate["score"] > prev["score"]):
-                    merged[doc_id] = candidate
+        merged, batch_groups = self._batch_collect_merged(updates_list, k, None)
 
         if not merged:
             return {

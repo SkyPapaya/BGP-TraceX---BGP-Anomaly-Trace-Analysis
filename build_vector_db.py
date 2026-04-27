@@ -1,17 +1,20 @@
 import os
 import sys
 import shutil
+import argparse
 
 # 确保能导入 tools 包
 sys.path.append(os.getcwd())
 from tools.rag_manager import RAGManager
-from tools.project_paths import FULL_ATTACK_CASES_FILE, RAG_DB_DIR
+from tools.project_paths import FULL_ATTACK_CASES_FILE, RAG_DB_DIR, RAG_CASES_FROM_EVENTS_FILE
 
-def build_db():
+
+def build_db(json_path: str | None = None):
     # ================= 配置区域 =================
-    # 1. 输入数据: 必须是你刚才生成的溯源数据 (.jsonl)
-    json_path = str(FULL_ATTACK_CASES_FILE)
-    
+    # 1. 输入数据: full_attack_cases.jsonl（合成）或 rag_cases_from_events.jsonl（真实 Step1 摘要）
+    if json_path is None:
+        json_path = str(FULL_ATTACK_CASES_FILE)
+
     # 2. 输出路径: 必须与 bgp_agent.py 里的设置一致
     db_path = str(RAG_DB_DIR)
     # ===========================================
@@ -19,7 +22,8 @@ def build_db():
     # 检查输入文件
     if not os.path.exists(json_path):
         print(f"❌ 错误: 找不到数据文件 {json_path}")
-        print("   -> 请先运行: python tools/gen_forensics_data.py")
+        print("   -> 合成语料: python auto_generator/auto_generator.py")
+        print("   -> 真实语料: python scripts/build_rag_from_events.py && 使用 --input data/rag_cases_from_events.jsonl")
         return
 
     # 清理旧数据库 (强制删除旧文件夹，防止脏数据干扰)
@@ -54,4 +58,11 @@ def build_db():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    build_db()
+    parser = argparse.ArgumentParser(description="构建 Chroma RAG 向量库")
+    parser.add_argument(
+        "--input",
+        default=str(FULL_ATTACK_CASES_FILE),
+        help=f"知识库 JSON/JSONL 路径。真实事件摘要默认: {RAG_CASES_FROM_EVENTS_FILE.name}",
+    )
+    args = parser.parse_args()
+    build_db(json_path=args.input)

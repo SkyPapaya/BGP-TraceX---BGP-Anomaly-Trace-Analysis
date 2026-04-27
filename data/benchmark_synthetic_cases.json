@@ -1,88 +1,2107 @@
 [
   {
-    "case_name": "Synthetic Direct Hijack (majority attacker + noise)",
-    "event_type": "HIJACK",
-    "is_real": false,
-    "expected_attacker": "65001",
-    "context": {
-      "time_window": {
-        "start": "2026-01-01T10:00:00",
-        "end": "2026-01-01T10:30:00"
-      },
-      "updates": [
-        {"prefix": "203.0.113.0/24", "as_path": "3356 65001", "detected_origin": "65001", "expected_origin": "64496"},
-        {"prefix": "203.0.113.0/24", "as_path": "174 65001", "detected_origin": "65001", "expected_origin": "64496"},
-        {"prefix": "203.0.113.0/24", "as_path": "1299 65001", "detected_origin": "65001", "expected_origin": "64496"},
-        {"prefix": "203.0.113.0/24", "as_path": "3356 65002", "detected_origin": "65002", "expected_origin": "64496"}
-      ]
-    }
-  },
-  {
-    "case_name": "Synthetic Route Leak (origin valid, leaker in middle)",
+    "case_id": "LEAK-GEN-006",
+    "case_name": "Synthetic Leak #06",
     "event_type": "LEAK",
-    "is_real": false,
-    "expected_attacker": "33154",
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "origin 始终保持合法 AS19281，但多条路径稳定出现中间 AS66006，符合路由泄露的“合法 origin + 异常中转”模式；另含 2 条少数中转噪声，用于高噪声测试。",
+    "expected_attacker": "66006",
+    "accept_uncertain": false,
     "context": {
       "time_window": {
-        "start": "2026-01-02T11:00:00",
-        "end": "2026-01-02T11:30:00"
+        "start": "2026-03-14T06:00:00",
+        "end": "2026-03-14T06:30:00"
       },
       "updates": [
-        {"prefix": "1.1.1.0/24", "as_path": "701 33154 13335", "detected_origin": "13335", "expected_origin": "13335"},
-        {"prefix": "1.1.1.0/24", "as_path": "3356 33154 13335", "detected_origin": "13335", "expected_origin": "13335"},
-        {"prefix": "1.1.1.0/24", "as_path": "174 33154 13335", "detected_origin": "13335", "expected_origin": "13335"}
+        {
+          "prefix": "9.9.9.0/24",
+          "as_path": "3320 66006 19281",
+          "detected_origin": "19281",
+          "expected_origin": "19281"
+        },
+        {
+          "prefix": "9.9.9.0/24",
+          "as_path": "3356 66006 19281",
+          "detected_origin": "19281",
+          "expected_origin": "19281"
+        },
+        {
+          "prefix": "9.9.9.0/24",
+          "as_path": "6453 66006 19281",
+          "detected_origin": "19281",
+          "expected_origin": "19281"
+        },
+        {
+          "prefix": "9.9.9.0/24",
+          "as_path": "6939 66106 19281",
+          "detected_origin": "19281",
+          "expected_origin": "19281"
+        },
+        {
+          "prefix": "9.9.9.0/24",
+          "as_path": "174 66107 19281",
+          "detected_origin": "19281",
+          "expected_origin": "19281"
+        }
       ]
     }
   },
   {
-    "case_name": "Synthetic Path Forgery (fake adjacency)",
-    "event_type": "FORGERY",
-    "is_real": false,
-    "expected_attacker": "666",
+    "case_id": "LEAK-GEN-011",
+    "case_name": "Synthetic Leak #11",
+    "event_type": "LEAK",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "origin 始终保持合法 AS64498，但多条路径稳定出现中间 AS66011，符合路由泄露的“合法 origin + 异常中转”模式；另含 1 条少数中转噪声。",
+    "expected_attacker": "66011",
+    "accept_uncertain": false,
     "context": {
       "time_window": {
-        "start": "2026-01-03T09:00:00",
-        "end": "2026-01-03T09:30:00"
+        "start": "2026-03-14T21:00:00",
+        "end": "2026-03-14T21:30:00"
       },
       "updates": [
-        {"prefix": "8.8.8.0/24", "as_path": "3356 666 15169", "detected_origin": "15169", "expected_origin": "15169"},
-        {"prefix": "8.8.8.0/24", "as_path": "174 666 15169", "detected_origin": "15169", "expected_origin": "15169"},
-        {"prefix": "8.8.8.0/24", "as_path": "2914 666 15169", "detected_origin": "15169", "expected_origin": "15169"}
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "209 66011 64498",
+          "detected_origin": "64498",
+          "expected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "286 66011 64498",
+          "detected_origin": "64498",
+          "expected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "701 66011 64498",
+          "detected_origin": "64498",
+          "expected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "1239 66111 64498",
+          "detected_origin": "64498",
+          "expected_origin": "64498"
+        }
       ]
     }
   },
   {
-    "case_name": "Synthetic Benign (normal operation)",
+    "case_id": "LEAK-GEN-003",
+    "case_name": "Synthetic Leak #03",
+    "event_type": "LEAK",
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "origin 始终保持合法 AS64520，但多条路径稳定出现中间 AS66003，符合路由泄露的“合法 origin + 异常中转”模式；另含 2 条少数中转噪声，用于高噪声测试。",
+    "expected_attacker": "66003",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-13T21:00:00",
+        "end": "2026-03-13T21:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "1299 66003 64520",
+          "detected_origin": "64520",
+          "expected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "2914 66003 64520",
+          "detected_origin": "64520",
+          "expected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "3257 66003 64520",
+          "detected_origin": "64520",
+          "expected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "3320 66103 64520",
+          "detected_origin": "64520",
+          "expected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "3356 66104 64520",
+          "detected_origin": "64520",
+          "expected_origin": "64520"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-003",
+    "case_name": "Synthetic Benign #03",
     "event_type": "BENIGN",
-    "is_real": false,
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "良性控制样本基于前缀 203.0.114.0/24 / AS64498 构造，良性 MOAS 控制样本：观测中出现少数派第二起源，但不提供 expected_origin，用于测试弱方法在不完整先验下的误报。 高噪声：进一步增加路径或起源层面的观测歧义。",
     "expected_attacker": "None",
+    "accept_uncertain": false,
     "context": {
       "time_window": {
-        "start": "2026-01-04T13:00:00",
-        "end": "2026-01-04T13:30:00"
+        "start": "2026-04-07T21:00:00",
+        "end": "2026-04-07T21:30:00"
       },
       "updates": [
-        {"prefix": "9.9.9.0/24", "as_path": "3356 19281", "detected_origin": "19281", "expected_origin": "19281"},
-        {"prefix": "9.9.9.0/24", "as_path": "174 19281", "detected_origin": "19281", "expected_origin": "19281"}
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "6453 64498",
+          "detected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "6939 64498",
+          "detected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "174 64498",
+          "detected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "209 64603",
+          "detected_origin": "64603"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "286 64603",
+          "detected_origin": "64603"
+        }
       ]
     }
   },
   {
-    "case_name": "Synthetic Low Consensus (conflicting attackers)",
+    "case_id": "HIJACK-GEN-009",
+    "case_name": "Synthetic Hijack #09",
     "event_type": "HIJACK",
-    "is_real": false,
-    "expected_attacker": "None",
-    "accept_uncertain": true,
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "5 条 updates 中主导异常 origin 为 AS65009，其宣告前缀 104.244.42.0/24 时与 expected_origin=AS13414 不一致；含 2 条少数派 origin，用于高噪声测试。",
+    "expected_attacker": "65009",
+    "accept_uncertain": false,
     "context": {
       "time_window": {
-        "start": "2026-01-05T15:00:00",
-        "end": "2026-01-05T15:30:00"
+        "start": "2026-03-02T03:00:00",
+        "end": "2026-03-02T03:30:00"
       },
       "updates": [
-        {"prefix": "198.51.100.0/24", "as_path": "3356 65010", "detected_origin": "65010", "expected_origin": "64497"},
-        {"prefix": "198.51.100.0/24", "as_path": "174 65011", "detected_origin": "65011", "expected_origin": "64497"},
-        {"prefix": "198.51.100.0/24", "as_path": "2914 65010", "detected_origin": "65010", "expected_origin": "64497"},
-        {"prefix": "198.51.100.0/24", "as_path": "1299 65011", "detected_origin": "65011", "expected_origin": "64497"}
+        {
+          "prefix": "104.244.42.0/24",
+          "as_path": "3356 65009",
+          "detected_origin": "65009",
+          "expected_origin": "13414"
+        },
+        {
+          "prefix": "104.244.42.0/24",
+          "as_path": "6453 65009",
+          "detected_origin": "65009",
+          "expected_origin": "13414"
+        },
+        {
+          "prefix": "104.244.42.0/24",
+          "as_path": "6939 65009",
+          "detected_origin": "65009",
+          "expected_origin": "13414"
+        },
+        {
+          "prefix": "104.244.42.0/24",
+          "as_path": "174 65109",
+          "detected_origin": "65109",
+          "expected_origin": "13414"
+        },
+        {
+          "prefix": "104.244.42.0/24",
+          "as_path": "209 65110",
+          "detected_origin": "65110",
+          "expected_origin": "13414"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "HIJACK-GEN-010",
+    "case_name": "Synthetic Hijack #10",
+    "event_type": "HIJACK",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "4 条 updates 中主导异常 origin 为 AS65010，其宣告前缀 203.0.122.0/24 时与 expected_origin=AS64540 不一致；多视角均一致指向同一异常 origin。",
+    "expected_attacker": "65010",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-02T06:00:00",
+        "end": "2026-03-02T06:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "6453 65010",
+          "detected_origin": "65010",
+          "expected_origin": "64540"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "6939 65010",
+          "detected_origin": "65010",
+          "expected_origin": "64540"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "174 65010",
+          "detected_origin": "65010",
+          "expected_origin": "64540"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "209 65010",
+          "detected_origin": "65010",
+          "expected_origin": "64540"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "FORGERY-GEN-003",
+    "case_name": "Synthetic Forgery #03",
+    "event_type": "FORGERY",
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "origin 维持合法 AS64550，但多视角路径稳定插入 AS67003，形成重复的异常邻接/伪造跳点；该模式更符合路径伪造而非 origin hijack。另含 2 条少数派伪造路径，用于高噪声测试。",
+    "expected_attacker": "67003",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-26T09:00:00",
+        "end": "2026-03-26T09:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "3320 67003 64550",
+          "detected_origin": "64550",
+          "expected_origin": "64550"
+        },
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "3356 67003 64550",
+          "detected_origin": "64550",
+          "expected_origin": "64550"
+        },
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "6453 67003 64550",
+          "detected_origin": "64550",
+          "expected_origin": "64550"
+        },
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "6939 67103 64550",
+          "detected_origin": "64550",
+          "expected_origin": "64550"
+        },
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "174 67104 64550",
+          "detected_origin": "64550",
+          "expected_origin": "64550"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "FORGERY-GEN-011",
+    "case_name": "Synthetic Forgery #11",
+    "event_type": "FORGERY",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "origin 维持合法 AS64530，但多视角路径稳定插入 AS67011，形成重复的异常邻接/伪造跳点；该模式更符合路径伪造而非 origin hijack。另含 1 条少数派伪造路径。",
+    "expected_attacker": "67011",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-27T09:00:00",
+        "end": "2026-03-27T09:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "1239 701 67011 64530",
+          "detected_origin": "64530",
+          "expected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "1299 701 67011 64530",
+          "detected_origin": "64530",
+          "expected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "2914 701 67011 64530",
+          "detected_origin": "64530",
+          "expected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "3257 701 67111 64530",
+          "detected_origin": "64530",
+          "expected_origin": "64530"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "HIJACK-GEN-008",
+    "case_name": "Synthetic Hijack #08",
+    "event_type": "HIJACK",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "4 条 updates 中主导异常 origin 为 AS65008，其宣告前缀 203.0.123.0/24 时与 expected_origin=AS64550 不一致；含 1 条少数噪声 origin，用于中等噪声测试。",
+    "expected_attacker": "65008",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-02T00:00:00",
+        "end": "2026-03-02T00:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "3320 65008",
+          "detected_origin": "65008",
+          "expected_origin": "64550"
+        },
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "3356 65008",
+          "detected_origin": "65008",
+          "expected_origin": "64550"
+        },
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "6453 65008",
+          "detected_origin": "65008",
+          "expected_origin": "64550"
+        },
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "6939 65108",
+          "detected_origin": "65108",
+          "expected_origin": "64550"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "HIJACK-GEN-012",
+    "case_name": "Synthetic Hijack #12",
+    "event_type": "HIJACK",
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "5 条 updates 中主导异常 origin 为 AS65012，其宣告前缀 198.51.120.0/24 时与 expected_origin=AS64520 不一致；含 2 条少数派 origin，用于高噪声测试。",
+    "expected_attacker": "65012",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-02T12:00:00",
+        "end": "2026-03-02T12:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "174 65012",
+          "detected_origin": "65012",
+          "expected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "209 65012",
+          "detected_origin": "65012",
+          "expected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "286 65012",
+          "detected_origin": "65012",
+          "expected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "701 65112",
+          "detected_origin": "65112",
+          "expected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "1239 65113",
+          "detected_origin": "65113",
+          "expected_origin": "64520"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "FORGERY-GEN-006",
+    "case_name": "Synthetic Forgery #06",
+    "event_type": "FORGERY",
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "origin 维持合法 AS64499，但多视角路径稳定插入 AS67006，形成重复的异常邻接/伪造跳点；该模式更符合路径伪造而非 origin hijack。另含 2 条少数派伪造路径，用于高噪声测试。",
+    "expected_attacker": "67006",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-26T18:00:00",
+        "end": "2026-03-26T18:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "6939 67006 64499",
+          "detected_origin": "64499",
+          "expected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "174 67006 64499",
+          "detected_origin": "64499",
+          "expected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "209 67006 64499",
+          "detected_origin": "64499",
+          "expected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "286 67106 64499",
+          "detected_origin": "64499",
+          "expected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "701 67107 64499",
+          "detected_origin": "64499",
+          "expected_origin": "64499"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "FORGERY-GEN-002",
+    "case_name": "Synthetic Forgery #02",
+    "event_type": "FORGERY",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "origin 维持合法 AS64498，但多视角路径稳定插入 AS67002，形成重复的异常邻接/伪造跳点；该模式更符合路径伪造而非 origin hijack。另含 1 条少数派伪造路径。",
+    "expected_attacker": "67002",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-26T06:00:00",
+        "end": "2026-03-26T06:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "3257 2914 67002 64498",
+          "detected_origin": "64498",
+          "expected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "3320 2914 67002 64498",
+          "detected_origin": "64498",
+          "expected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "3356 2914 67002 64498",
+          "detected_origin": "64498",
+          "expected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "6453 2914 67102 64498",
+          "detected_origin": "64498",
+          "expected_origin": "64498"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-011",
+    "case_name": "Synthetic Benign #11",
+    "event_type": "BENIGN",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "良性控制样本基于前缀 203.0.114.0/24 / AS64498 构造，观测缺少 expected_origin，且混入合法长路径传播。 中噪声：引入少量观测歧义。",
+    "expected_attacker": "None",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-04-08T21:00:00",
+        "end": "2026-04-08T21:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "2914 64498",
+          "detected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "3257 64572 64498",
+          "detected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "3320 64573 64498",
+          "detected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "3356 64574 64498",
+          "detected_origin": "64498"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-004",
+    "case_name": "Synthetic Benign #04",
+    "event_type": "BENIGN",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "良性控制样本基于前缀 203.0.115.0/24 / AS64499 构造，观测缺少 expected_origin，且混入合法长路径传播。 低噪声：以一致直连为主。",
+    "expected_attacker": "None",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-04-08T00:00:00",
+        "end": "2026-04-08T00:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "6939 64499",
+          "detected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "174 64565 64499",
+          "detected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "209 64566 64499",
+          "detected_origin": "64499"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "LEAK-GEN-012",
+    "case_name": "Synthetic Leak #12",
+    "event_type": "LEAK",
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "origin 始终保持合法 AS64550，但多条路径稳定出现中间 AS66012，符合路由泄露的“合法 origin + 异常中转”模式；另含 2 条少数中转噪声，用于高噪声测试。",
+    "expected_attacker": "66012",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-15T00:00:00",
+        "end": "2026-03-15T00:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "286 66012 64550",
+          "detected_origin": "64550",
+          "expected_origin": "64550"
+        },
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "701 66012 64550",
+          "detected_origin": "64550",
+          "expected_origin": "64550"
+        },
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "1239 66012 64550",
+          "detected_origin": "64550",
+          "expected_origin": "64550"
+        },
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "1299 66112 64550",
+          "detected_origin": "64550",
+          "expected_origin": "64550"
+        },
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "2914 66113 64550",
+          "detected_origin": "64550",
+          "expected_origin": "64550"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "FORGERY-GEN-007",
+    "case_name": "Synthetic Forgery #07",
+    "event_type": "FORGERY",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "origin 维持合法 AS64520，但多视角路径稳定插入 AS67007，形成重复的异常邻接/伪造跳点；该模式更符合路径伪造而非 origin hijack。 全部观测一致。",
+    "expected_attacker": "67007",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-26T21:00:00",
+        "end": "2026-03-26T21:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "174 67007 6939 64520",
+          "detected_origin": "64520",
+          "expected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "209 67007 6939 64520",
+          "detected_origin": "64520",
+          "expected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "286 67007 6939 64520",
+          "detected_origin": "64520",
+          "expected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "701 67007 6939 64520",
+          "detected_origin": "64520",
+          "expected_origin": "64520"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-002",
+    "case_name": "Synthetic Benign #02",
+    "event_type": "BENIGN",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "良性控制样本基于前缀 198.51.100.0/24 / AS64497 构造，良性 MOAS 控制样本：观测中出现少数派第二起源，但不提供 expected_origin，用于测试弱方法在不完整先验下的误报。 中噪声：引入少量观测歧义。",
+    "expected_attacker": "None",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-04-07T18:00:00",
+        "end": "2026-04-07T18:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "3356 64497",
+          "detected_origin": "64497"
+        },
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "6453 64497",
+          "detected_origin": "64497"
+        },
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "6939 64497",
+          "detected_origin": "64497"
+        },
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "174 64602",
+          "detected_origin": "64602"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-008",
+    "case_name": "Synthetic Benign #08",
+    "event_type": "BENIGN",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "良性控制样本基于前缀 203.0.123.0/24 / AS64550 构造，良性 MOAS 控制样本：观测中出现少数派第二起源，但不提供 expected_origin，用于测试弱方法在不完整先验下的误报。 中噪声：引入少量观测歧义。",
+    "expected_attacker": "None",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-04-08T12:00:00",
+        "end": "2026-04-08T12:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "701 64550",
+          "detected_origin": "64550"
+        },
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "1239 64550",
+          "detected_origin": "64550"
+        },
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "1299 64550",
+          "detected_origin": "64550"
+        },
+        {
+          "prefix": "203.0.123.0/24",
+          "as_path": "2914 64608",
+          "detected_origin": "64608"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "HIJACK-GEN-007",
+    "case_name": "Synthetic Hijack #07",
+    "event_type": "HIJACK",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "4 条 updates 中主导异常 origin 为 AS65007，其宣告前缀 203.0.114.0/24 时与 expected_origin=AS64498 不一致；多视角均一致指向同一异常 origin。",
+    "expected_attacker": "65007",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-01T21:00:00",
+        "end": "2026-03-01T21:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "3257 65007",
+          "detected_origin": "65007",
+          "expected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "3320 65007",
+          "detected_origin": "65007",
+          "expected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "3356 65007",
+          "detected_origin": "65007",
+          "expected_origin": "64498"
+        },
+        {
+          "prefix": "203.0.114.0/24",
+          "as_path": "6453 65007",
+          "detected_origin": "65007",
+          "expected_origin": "64498"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "HIJACK-GEN-002",
+    "case_name": "Synthetic Hijack #02",
+    "event_type": "HIJACK",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "4 条 updates 中主导异常 origin 为 AS65002，其宣告前缀 9.9.9.0/24 时与 expected_origin=AS19281 不一致；含 1 条少数噪声 origin，用于中等噪声测试。",
+    "expected_attacker": "65002",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-01T06:00:00",
+        "end": "2026-03-01T06:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "9.9.9.0/24",
+          "as_path": "286 65002",
+          "detected_origin": "65002",
+          "expected_origin": "19281"
+        },
+        {
+          "prefix": "9.9.9.0/24",
+          "as_path": "701 65002",
+          "detected_origin": "65002",
+          "expected_origin": "19281"
+        },
+        {
+          "prefix": "9.9.9.0/24",
+          "as_path": "1239 65002",
+          "detected_origin": "65002",
+          "expected_origin": "19281"
+        },
+        {
+          "prefix": "9.9.9.0/24",
+          "as_path": "1299 65102",
+          "detected_origin": "65102",
+          "expected_origin": "19281"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-014",
+    "case_name": "Synthetic Benign #14",
+    "event_type": "BENIGN",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "良性控制样本基于前缀 203.0.121.0/24 / AS64530 构造，良性 MOAS 控制样本：观测中出现少数派第二起源，但不提供 expected_origin，用于测试弱方法在不完整先验下的误报。 中噪声：引入少量观测歧义。",
+    "expected_attacker": "None",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-04-09T06:00:00",
+        "end": "2026-04-09T06:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "3356 64530",
+          "detected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "6453 64530",
+          "detected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "6939 64530",
+          "detected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "174 64614",
+          "detected_origin": "64614"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "HIJACK-GEN-003",
+    "case_name": "Synthetic Hijack #03",
+    "event_type": "HIJACK",
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "5 条 updates 中主导异常 origin 为 AS65003，其宣告前缀 203.0.121.0/24 时与 expected_origin=AS64530 不一致；含 2 条少数派 origin，用于高噪声测试。",
+    "expected_attacker": "65003",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-01T09:00:00",
+        "end": "2026-03-01T09:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "701 65003",
+          "detected_origin": "65003",
+          "expected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "1239 65003",
+          "detected_origin": "65003",
+          "expected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "1299 65003",
+          "detected_origin": "65003",
+          "expected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "2914 65103",
+          "detected_origin": "65103",
+          "expected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "3257 65104",
+          "detected_origin": "65104",
+          "expected_origin": "64530"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-013",
+    "case_name": "Synthetic Benign #13",
+    "event_type": "BENIGN",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "良性控制样本基于前缀 198.51.120.0/24 / AS64520 构造，观测缺少 expected_origin，且混入合法长路径传播。 低噪声：以一致直连为主。",
+    "expected_attacker": "None",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-04-09T03:00:00",
+        "end": "2026-04-09T03:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "3320 64520",
+          "detected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "3356 64574 64520",
+          "detected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "6453 64575 64520",
+          "detected_origin": "64520"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "HIJACK-GEN-011",
+    "case_name": "Synthetic Hijack #11",
+    "event_type": "HIJACK",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "4 条 updates 中主导异常 origin 为 AS65011，其宣告前缀 203.0.115.0/24 时与 expected_origin=AS64499 不一致；含 1 条少数噪声 origin，用于中等噪声测试。",
+    "expected_attacker": "65011",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-02T09:00:00",
+        "end": "2026-03-02T09:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "6939 65011",
+          "detected_origin": "65011",
+          "expected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "174 65011",
+          "detected_origin": "65011",
+          "expected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "209 65011",
+          "detected_origin": "65011",
+          "expected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "286 65111",
+          "detected_origin": "65111",
+          "expected_origin": "64499"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "HIJACK-GEN-004",
+    "case_name": "Synthetic Hijack #04",
+    "event_type": "HIJACK",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "4 条 updates 中主导异常 origin 为 AS65004，其宣告前缀 198.51.100.0/24 时与 expected_origin=AS64497 不一致；多视角均一致指向同一异常 origin。",
+    "expected_attacker": "65004",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-01T12:00:00",
+        "end": "2026-03-01T12:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "1239 65004",
+          "detected_origin": "65004",
+          "expected_origin": "64497"
+        },
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "1299 65004",
+          "detected_origin": "65004",
+          "expected_origin": "64497"
+        },
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "2914 65004",
+          "detected_origin": "65004",
+          "expected_origin": "64497"
+        },
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "3257 65004",
+          "detected_origin": "65004",
+          "expected_origin": "64497"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-005",
+    "case_name": "Synthetic Benign #05",
+    "event_type": "BENIGN",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "良性控制样本基于前缀 198.51.120.0/24 / AS64520 构造，观测缺少 expected_origin，且混入合法长路径传播。 中噪声：引入少量观测歧义。",
+    "expected_attacker": "None",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-04-08T03:00:00",
+        "end": "2026-04-08T03:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "174 64520",
+          "detected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "209 64566 64520",
+          "detected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "286 64567 64520",
+          "detected_origin": "64520"
+        },
+        {
+          "prefix": "198.51.120.0/24",
+          "as_path": "701 64568 64520",
+          "detected_origin": "64520"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-015",
+    "case_name": "Synthetic Benign #15",
+    "event_type": "BENIGN",
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "良性控制样本基于前缀 203.0.122.0/24 / AS64540 构造，良性 MOAS 控制样本：观测中出现少数派第二起源，但不提供 expected_origin，用于测试弱方法在不完整先验下的误报。 高噪声：进一步增加路径或起源层面的观测歧义。",
+    "expected_attacker": "None",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-04-09T09:00:00",
+        "end": "2026-04-09T09:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "6453 64540",
+          "detected_origin": "64540"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "6939 64540",
+          "detected_origin": "64540"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "174 64540",
+          "detected_origin": "64540"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "209 64615",
+          "detected_origin": "64615"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "286 64615",
+          "detected_origin": "64615"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "HIJACK-GEN-001",
+    "case_name": "Synthetic Hijack #01",
+    "event_type": "HIJACK",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "4 条 updates 中主导异常 origin 为 AS65001，其宣告前缀 52.94.11.0/24 时与 expected_origin=AS16509 不一致；多视角均一致指向同一异常 origin。",
+    "expected_attacker": "65001",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-01T03:00:00",
+        "end": "2026-03-01T03:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "52.94.11.0/24",
+          "as_path": "209 65001",
+          "detected_origin": "65001",
+          "expected_origin": "16509"
+        },
+        {
+          "prefix": "52.94.11.0/24",
+          "as_path": "286 65001",
+          "detected_origin": "65001",
+          "expected_origin": "16509"
+        },
+        {
+          "prefix": "52.94.11.0/24",
+          "as_path": "701 65001",
+          "detected_origin": "65001",
+          "expected_origin": "16509"
+        },
+        {
+          "prefix": "52.94.11.0/24",
+          "as_path": "1239 65001",
+          "detected_origin": "65001",
+          "expected_origin": "16509"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "LEAK-GEN-010",
+    "case_name": "Synthetic Leak #10",
+    "event_type": "LEAK",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "origin 始终保持合法 AS64496，但多条路径稳定出现中间 AS66010，符合路由泄露的“合法 origin + 异常中转”模式；多观测点对泄露节点形成一致共识。",
+    "expected_attacker": "66010",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-14T18:00:00",
+        "end": "2026-03-14T18:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "174 66010 64496",
+          "detected_origin": "64496",
+          "expected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "209 66010 64496",
+          "detected_origin": "64496",
+          "expected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "286 66010 64496",
+          "detected_origin": "64496",
+          "expected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "701 66010 64496",
+          "detected_origin": "64496",
+          "expected_origin": "64496"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "FORGERY-GEN-001",
+    "case_name": "Synthetic Forgery #01",
+    "event_type": "FORGERY",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "origin 维持合法 AS64496，但多视角路径稳定插入 AS67001，形成重复的异常邻接/伪造跳点；该模式更符合路径伪造而非 origin hijack。 全部观测一致。",
+    "expected_attacker": "67001",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-26T03:00:00",
+        "end": "2026-03-26T03:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "2914 67001 1299 64496",
+          "detected_origin": "64496",
+          "expected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "3257 67001 1299 64496",
+          "detected_origin": "64496",
+          "expected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "3320 67001 1299 64496",
+          "detected_origin": "64496",
+          "expected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "3356 67001 1299 64496",
+          "detected_origin": "64496",
+          "expected_origin": "64496"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-012",
+    "case_name": "Synthetic Benign #12",
+    "event_type": "BENIGN",
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "良性控制样本基于前缀 203.0.115.0/24 / AS64499 构造，观测缺少 expected_origin，且混入合法长路径传播。 高噪声：进一步增加路径或起源层面的观测歧义。",
+    "expected_attacker": "None",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-04-09T00:00:00",
+        "end": "2026-04-09T00:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "3257 64499",
+          "detected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "3320 64573 64499",
+          "detected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "3356 64574 64499",
+          "detected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "6453 64575 64499",
+          "detected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "6939 64576 64499",
+          "detected_origin": "64499"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "LEAK-GEN-007",
+    "case_name": "Synthetic Leak #07",
+    "event_type": "LEAK",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "origin 始终保持合法 AS64530，但多条路径稳定出现中间 AS66007，符合路由泄露的“合法 origin + 异常中转”模式；多观测点对泄露节点形成一致共识。",
+    "expected_attacker": "66007",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-14T09:00:00",
+        "end": "2026-03-14T09:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "3356 66007 64530",
+          "detected_origin": "64530",
+          "expected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "6453 66007 64530",
+          "detected_origin": "64530",
+          "expected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "6939 66007 64530",
+          "detected_origin": "64530",
+          "expected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "174 66007 64530",
+          "detected_origin": "64530",
+          "expected_origin": "64530"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "FORGERY-GEN-005",
+    "case_name": "Synthetic Forgery #05",
+    "event_type": "FORGERY",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "origin 维持合法 AS64540，但多视角路径稳定插入 AS67005，形成重复的异常邻接/伪造跳点；该模式更符合路径伪造而非 origin hijack。另含 1 条少数派伪造路径。",
+    "expected_attacker": "67005",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-26T15:00:00",
+        "end": "2026-03-26T15:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "6453 3356 67005 64540",
+          "detected_origin": "64540",
+          "expected_origin": "64540"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "6939 3356 67005 64540",
+          "detected_origin": "64540",
+          "expected_origin": "64540"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "174 3356 67005 64540",
+          "detected_origin": "64540",
+          "expected_origin": "64540"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "209 3356 67105 64540",
+          "detected_origin": "64540",
+          "expected_origin": "64540"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-009",
+    "case_name": "Synthetic Benign #09",
+    "event_type": "BENIGN",
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "良性控制样本基于前缀 203.0.113.0/24 / AS64496 构造，良性 MOAS 控制样本：观测中出现少数派第二起源，但不提供 expected_origin，用于测试弱方法在不完整先验下的误报。 高噪声：进一步增加路径或起源层面的观测歧义。",
+    "expected_attacker": "None",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-04-08T15:00:00",
+        "end": "2026-04-08T15:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "1239 64496",
+          "detected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "1299 64496",
+          "detected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "2914 64496",
+          "detected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "3257 64609",
+          "detected_origin": "64609"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "3320 64609",
+          "detected_origin": "64609"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-006",
+    "case_name": "Synthetic Benign #06",
+    "event_type": "BENIGN",
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "良性控制样本基于前缀 203.0.121.0/24 / AS64530 构造，观测缺少 expected_origin，且混入合法长路径传播。 高噪声：进一步增加路径或起源层面的观测歧义。",
+    "expected_attacker": "None",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-04-08T06:00:00",
+        "end": "2026-04-08T06:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "209 64530",
+          "detected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "286 64567 64530",
+          "detected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "701 64568 64530",
+          "detected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "1239 64569 64530",
+          "detected_origin": "64530"
+        },
+        {
+          "prefix": "203.0.121.0/24",
+          "as_path": "1299 64570 64530",
+          "detected_origin": "64530"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "HIJACK-GEN-005",
+    "case_name": "Synthetic Hijack #05",
+    "event_type": "HIJACK",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "4 条 updates 中主导异常 origin 为 AS65005，其宣告前缀 8.8.8.0/24 时与 expected_origin=AS15169 不一致；含 1 条少数噪声 origin，用于中等噪声测试。",
+    "expected_attacker": "65005",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-01T15:00:00",
+        "end": "2026-03-01T15:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "8.8.8.0/24",
+          "as_path": "1299 65005",
+          "detected_origin": "65005",
+          "expected_origin": "15169"
+        },
+        {
+          "prefix": "8.8.8.0/24",
+          "as_path": "2914 65005",
+          "detected_origin": "65005",
+          "expected_origin": "15169"
+        },
+        {
+          "prefix": "8.8.8.0/24",
+          "as_path": "3257 65005",
+          "detected_origin": "65005",
+          "expected_origin": "15169"
+        },
+        {
+          "prefix": "8.8.8.0/24",
+          "as_path": "3320 65105",
+          "detected_origin": "65105",
+          "expected_origin": "15169"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "FORGERY-GEN-008",
+    "case_name": "Synthetic Forgery #08",
+    "event_type": "FORGERY",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "origin 维持合法 AS13335，但多视角路径稳定插入 AS67008，形成重复的异常邻接/伪造跳点；该模式更符合路径伪造而非 origin hijack。另含 1 条少数派伪造路径。",
+    "expected_attacker": "67008",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-27T00:00:00",
+        "end": "2026-03-27T00:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "1.1.1.0/24",
+          "as_path": "209 174 67008 13335",
+          "detected_origin": "13335",
+          "expected_origin": "13335"
+        },
+        {
+          "prefix": "1.1.1.0/24",
+          "as_path": "286 174 67008 13335",
+          "detected_origin": "13335",
+          "expected_origin": "13335"
+        },
+        {
+          "prefix": "1.1.1.0/24",
+          "as_path": "701 174 67008 13335",
+          "detected_origin": "13335",
+          "expected_origin": "13335"
+        },
+        {
+          "prefix": "1.1.1.0/24",
+          "as_path": "1239 174 67108 13335",
+          "detected_origin": "13335",
+          "expected_origin": "13335"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "HIJACK-GEN-006",
+    "case_name": "Synthetic Hijack #06",
+    "event_type": "HIJACK",
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "5 条 updates 中主导异常 origin 为 AS65006，其宣告前缀 203.0.113.0/24 时与 expected_origin=AS64496 不一致；含 2 条少数派 origin，用于高噪声测试。",
+    "expected_attacker": "65006",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-01T18:00:00",
+        "end": "2026-03-01T18:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "2914 65006",
+          "detected_origin": "65006",
+          "expected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "3257 65006",
+          "detected_origin": "65006",
+          "expected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "3320 65006",
+          "detected_origin": "65006",
+          "expected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "3356 65106",
+          "detected_origin": "65106",
+          "expected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "6453 65107",
+          "detected_origin": "65107",
+          "expected_origin": "64496"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "LEAK-GEN-001",
+    "case_name": "Synthetic Leak #01",
+    "event_type": "LEAK",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "origin 始终保持合法 AS64540，但多条路径稳定出现中间 AS66001，符合路由泄露的“合法 origin + 异常中转”模式；多观测点对泄露节点形成一致共识。",
+    "expected_attacker": "66001",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-13T15:00:00",
+        "end": "2026-03-13T15:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "701 66001 64540",
+          "detected_origin": "64540",
+          "expected_origin": "64540"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "1239 66001 64540",
+          "detected_origin": "64540",
+          "expected_origin": "64540"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "1299 66001 64540",
+          "detected_origin": "64540",
+          "expected_origin": "64540"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "2914 66001 64540",
+          "detected_origin": "64540",
+          "expected_origin": "64540"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "LEAK-GEN-004",
+    "case_name": "Synthetic Leak #04",
+    "event_type": "LEAK",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "origin 始终保持合法 AS13335，但多条路径稳定出现中间 AS66004，符合路由泄露的“合法 origin + 异常中转”模式；多观测点对泄露节点形成一致共识。",
+    "expected_attacker": "66004",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-14T00:00:00",
+        "end": "2026-03-14T00:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "1.1.1.0/24",
+          "as_path": "2914 66004 13335",
+          "detected_origin": "13335",
+          "expected_origin": "13335"
+        },
+        {
+          "prefix": "1.1.1.0/24",
+          "as_path": "3257 66004 13335",
+          "detected_origin": "13335",
+          "expected_origin": "13335"
+        },
+        {
+          "prefix": "1.1.1.0/24",
+          "as_path": "3320 66004 13335",
+          "detected_origin": "13335",
+          "expected_origin": "13335"
+        },
+        {
+          "prefix": "1.1.1.0/24",
+          "as_path": "3356 66004 13335",
+          "detected_origin": "13335",
+          "expected_origin": "13335"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "FORGERY-GEN-010",
+    "case_name": "Synthetic Forgery #10",
+    "event_type": "FORGERY",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "origin 维持合法 AS19281，但多视角路径稳定插入 AS67010，形成重复的异常邻接/伪造跳点；该模式更符合路径伪造而非 origin hijack。 全部观测一致。",
+    "expected_attacker": "67010",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-27T06:00:00",
+        "end": "2026-03-27T06:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "9.9.9.0/24",
+          "as_path": "701 67010 286 19281",
+          "detected_origin": "19281",
+          "expected_origin": "19281"
+        },
+        {
+          "prefix": "9.9.9.0/24",
+          "as_path": "1239 67010 286 19281",
+          "detected_origin": "19281",
+          "expected_origin": "19281"
+        },
+        {
+          "prefix": "9.9.9.0/24",
+          "as_path": "1299 67010 286 19281",
+          "detected_origin": "19281",
+          "expected_origin": "19281"
+        },
+        {
+          "prefix": "9.9.9.0/24",
+          "as_path": "2914 67010 286 19281",
+          "detected_origin": "19281",
+          "expected_origin": "19281"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "FORGERY-GEN-009",
+    "case_name": "Synthetic Forgery #09",
+    "event_type": "FORGERY",
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "origin 维持合法 AS16509，但多视角路径稳定插入 AS67009，形成重复的异常邻接/伪造跳点；该模式更符合路径伪造而非 origin hijack。另含 2 条少数派伪造路径，用于高噪声测试。",
+    "expected_attacker": "67009",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-27T03:00:00",
+        "end": "2026-03-27T03:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "52.94.11.0/24",
+          "as_path": "286 67009 16509",
+          "detected_origin": "16509",
+          "expected_origin": "16509"
+        },
+        {
+          "prefix": "52.94.11.0/24",
+          "as_path": "701 67009 16509",
+          "detected_origin": "16509",
+          "expected_origin": "16509"
+        },
+        {
+          "prefix": "52.94.11.0/24",
+          "as_path": "1239 67009 16509",
+          "detected_origin": "16509",
+          "expected_origin": "16509"
+        },
+        {
+          "prefix": "52.94.11.0/24",
+          "as_path": "1299 67109 16509",
+          "detected_origin": "16509",
+          "expected_origin": "16509"
+        },
+        {
+          "prefix": "52.94.11.0/24",
+          "as_path": "2914 67110 16509",
+          "detected_origin": "16509",
+          "expected_origin": "16509"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "LEAK-GEN-005",
+    "case_name": "Synthetic Leak #05",
+    "event_type": "LEAK",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "origin 始终保持合法 AS16509，但多条路径稳定出现中间 AS66005，符合路由泄露的“合法 origin + 异常中转”模式；另含 1 条少数中转噪声。",
+    "expected_attacker": "66005",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-14T03:00:00",
+        "end": "2026-03-14T03:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "52.94.11.0/24",
+          "as_path": "3257 66005 16509",
+          "detected_origin": "16509",
+          "expected_origin": "16509"
+        },
+        {
+          "prefix": "52.94.11.0/24",
+          "as_path": "3320 66005 16509",
+          "detected_origin": "16509",
+          "expected_origin": "16509"
+        },
+        {
+          "prefix": "52.94.11.0/24",
+          "as_path": "3356 66005 16509",
+          "detected_origin": "16509",
+          "expected_origin": "16509"
+        },
+        {
+          "prefix": "52.94.11.0/24",
+          "as_path": "6453 66105 16509",
+          "detected_origin": "16509",
+          "expected_origin": "16509"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-001",
+    "case_name": "Synthetic Benign #01",
+    "event_type": "BENIGN",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "良性控制样本基于前缀 203.0.113.0/24 / AS64496 构造，观测缺少 expected_origin，且混入合法长路径传播。 低噪声：以一致直连为主。",
+    "expected_attacker": "None",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-04-07T15:00:00",
+        "end": "2026-04-07T15:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "3320 64496",
+          "detected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "3356 64562 64496",
+          "detected_origin": "64496"
+        },
+        {
+          "prefix": "203.0.113.0/24",
+          "as_path": "6453 64563 64496",
+          "detected_origin": "64496"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-010",
+    "case_name": "Synthetic Benign #10",
+    "event_type": "BENIGN",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "良性控制样本基于前缀 198.51.100.0/24 / AS64497 构造，观测缺少 expected_origin，且混入合法长路径传播。 低噪声：以一致直连为主。",
+    "expected_attacker": "None",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-04-08T18:00:00",
+        "end": "2026-04-08T18:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "1299 64497",
+          "detected_origin": "64497"
+        },
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "2914 64571 64497",
+          "detected_origin": "64497"
+        },
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "3257 64572 64497",
+          "detected_origin": "64497"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "FORGERY-GEN-004",
+    "case_name": "Synthetic Forgery #04",
+    "event_type": "FORGERY",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "origin 维持合法 AS13414，但多视角路径稳定插入 AS67004，形成重复的异常邻接/伪造跳点；该模式更符合路径伪造而非 origin hijack。 全部观测一致。",
+    "expected_attacker": "67004",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-26T12:00:00",
+        "end": "2026-03-26T12:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "104.244.42.0/24",
+          "as_path": "3356 67004 3320 13414",
+          "detected_origin": "13414",
+          "expected_origin": "13414"
+        },
+        {
+          "prefix": "104.244.42.0/24",
+          "as_path": "6453 67004 3320 13414",
+          "detected_origin": "13414",
+          "expected_origin": "13414"
+        },
+        {
+          "prefix": "104.244.42.0/24",
+          "as_path": "6939 67004 3320 13414",
+          "detected_origin": "13414",
+          "expected_origin": "13414"
+        },
+        {
+          "prefix": "104.244.42.0/24",
+          "as_path": "174 67004 3320 13414",
+          "detected_origin": "13414",
+          "expected_origin": "13414"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "LEAK-GEN-002",
+    "case_name": "Synthetic Leak #02",
+    "event_type": "LEAK",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "origin 始终保持合法 AS64499，但多条路径稳定出现中间 AS66002，符合路由泄露的“合法 origin + 异常中转”模式；另含 1 条少数中转噪声。",
+    "expected_attacker": "66002",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-13T18:00:00",
+        "end": "2026-03-13T18:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "1239 66002 64499",
+          "detected_origin": "64499",
+          "expected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "1299 66002 64499",
+          "detected_origin": "64499",
+          "expected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "2914 66002 64499",
+          "detected_origin": "64499",
+          "expected_origin": "64499"
+        },
+        {
+          "prefix": "203.0.115.0/24",
+          "as_path": "3257 66102 64499",
+          "detected_origin": "64499",
+          "expected_origin": "64499"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "BENIGN-GEN-007",
+    "case_name": "Synthetic Benign #07",
+    "event_type": "BENIGN",
+    "source_type": "synthetic",
+    "noise_level": "low",
+    "simulation_reason": "良性控制样本基于前缀 203.0.122.0/24 / AS64540 构造，观测缺少 expected_origin，且混入合法长路径传播。 低噪声：以一致直连为主。",
+    "expected_attacker": "None",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-04-08T09:00:00",
+        "end": "2026-04-08T09:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "286 64540",
+          "detected_origin": "64540"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "701 64568 64540",
+          "detected_origin": "64540"
+        },
+        {
+          "prefix": "203.0.122.0/24",
+          "as_path": "1239 64569 64540",
+          "detected_origin": "64540"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "LEAK-GEN-009",
+    "case_name": "Synthetic Leak #09",
+    "event_type": "LEAK",
+    "source_type": "synthetic",
+    "noise_level": "high",
+    "simulation_reason": "origin 始终保持合法 AS15169，但多条路径稳定出现中间 AS66009，符合路由泄露的“合法 origin + 异常中转”模式；另含 2 条少数中转噪声，用于高噪声测试。",
+    "expected_attacker": "66009",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-14T15:00:00",
+        "end": "2026-03-14T15:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "8.8.8.0/24",
+          "as_path": "6939 66009 15169",
+          "detected_origin": "15169",
+          "expected_origin": "15169"
+        },
+        {
+          "prefix": "8.8.8.0/24",
+          "as_path": "174 66009 15169",
+          "detected_origin": "15169",
+          "expected_origin": "15169"
+        },
+        {
+          "prefix": "8.8.8.0/24",
+          "as_path": "209 66009 15169",
+          "detected_origin": "15169",
+          "expected_origin": "15169"
+        },
+        {
+          "prefix": "8.8.8.0/24",
+          "as_path": "286 66109 15169",
+          "detected_origin": "15169",
+          "expected_origin": "15169"
+        },
+        {
+          "prefix": "8.8.8.0/24",
+          "as_path": "701 66110 15169",
+          "detected_origin": "15169",
+          "expected_origin": "15169"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "LEAK-GEN-008",
+    "case_name": "Synthetic Leak #08",
+    "event_type": "LEAK",
+    "source_type": "synthetic",
+    "noise_level": "medium",
+    "simulation_reason": "origin 始终保持合法 AS64497，但多条路径稳定出现中间 AS66008，符合路由泄露的“合法 origin + 异常中转”模式；另含 1 条少数中转噪声。",
+    "expected_attacker": "66008",
+    "accept_uncertain": false,
+    "context": {
+      "time_window": {
+        "start": "2026-03-14T12:00:00",
+        "end": "2026-03-14T12:30:00"
+      },
+      "updates": [
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "6453 66008 64497",
+          "detected_origin": "64497",
+          "expected_origin": "64497"
+        },
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "6939 66008 64497",
+          "detected_origin": "64497",
+          "expected_origin": "64497"
+        },
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "174 66008 64497",
+          "detected_origin": "64497",
+          "expected_origin": "64497"
+        },
+        {
+          "prefix": "198.51.100.0/24",
+          "as_path": "209 66108 64497",
+          "detected_origin": "64497",
+          "expected_origin": "64497"
+        }
       ]
     }
   }

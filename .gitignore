@@ -5,7 +5,16 @@ __pycache__/
 #specific file
 wandio-4.2.6-1
 libbgpstream-2.2.0
-rag_db
+rag_db/
+# local fonts / image assets
+fonts/
+!fonts/.gitkeep
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.svg
 *.bin
 *.bz2
 *.txt
@@ -14,6 +23,7 @@ rag_db
 # data/report outputs (generated)
 data/events/
 data/experiments/real_events/
+data/rag_cases_from_events.jsonl
 *.gz
 report/forensics/
 report/evaluation/
@@ -153,6 +163,8 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+!.env.example
 .envrc
 .venv
 env/
