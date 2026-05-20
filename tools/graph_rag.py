@@ -2,10 +2,59 @@
 from neo4j import GraphDatabase
 import logging
 import os
+import subprocess
+import time
 
 # 配置日志
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("Neo4j_RAG")
+
+NEO4J_CONTAINER = "neo4j-bgp"
+
+def _ensure_neo4j_running():
+    """检查 Neo4j Docker 容器是否在运行，没有则启动"""
+    try:
+        result = subprocess.run(
+            ["docker", "ps", "--filter", f"name={NEO4J_CONTAINER}", "--format", "{{.Names}}"],
+            capture_output=True, text=True, timeout=5
+        )
+        if NEO4J_CONTAINER in result.stdout:
+            return True  # 容器已在运行
+
+        # 检查容器是否存在但停止了
+        result = subprocess.run(
+            ["docker", "ps", "-a", "--filter", f"name={NEO4J_CONTAINER}", "--format", "{{.Names}}"],
+            capture_output=True, text=True, timeout=5
+        )
+        if NEO4J_CONTAINER in result.stdout:
+            print(f"⚡ [Neo4j] 容器存在但未运行，正在启动...")
+            subprocess.run(["docker", "start", NEO4J_CONTAINER], check=True, timeout=30)
+        else:
+            print(f"⚡ [Neo4j] 容器不存在，正在创建并启动...")
+            subprocess.run([
+                "docker", "run", "-d", "--name", NEO4J_CONTAINER,
+                "-p", "7474:7474", "-p", "7687:7687",
+                "-e", f"NEO4J_AUTH=neo4j/{os.getenv('NEO4J_PASSWORD', 'bgptracex2024')}",
+                "neo4j:latest"
+            ], check=True, timeout=120)
+
+        # 等待 Neo4j 就绪
+        for _ in range(15):
+            time.sleep(2)
+            try:
+                from neo4j import GraphDatabase as GD
+                pwd = os.getenv("NEO4J_PASSWORD", "bgptracex2024")
+                d = GD.driver("bolt://localhost:7687", auth=("neo4j", pwd))
+                d.verify_connectivity()
+                d.close()
+                return True
+            except Exception:
+                pass
+        return False
+    except Exception as e:
+        print(f"⚠️ [Neo4j] 自动启动失败: {e}")
+        return False
+
 
 class BGPGraphRAG:
     def __init__(self, uri="bolt://localhost:7687", user="neo4j", password=None):
@@ -13,16 +62,16 @@ class BGPGraphRAG:
         初始化 Neo4j 连接并注入初始数据
         """
         self.driver = None
-        neo4j_password = password if password is not None else os.getenv("NEO4J_PASSWORD", "neo4j")
+        neo4j_password = password if password is not None else os.getenv("NEO4J_PASSWORD", "bgptracex2024")
+
+        # 自动检查并启动 Docker 容器
+        _ensure_neo4j_running()
+
         try:
             self.driver = GraphDatabase.driver(uri, auth=(user, neo4j_password))
-            # 验证连接
             self.driver.verify_connectivity()
             print("✅ [Neo4j] 数据库连接成功！")
-            
-            # 初始化数据 (生产环境不需要每次都做，但为了模拟测试，我们需要先填入数据)
             self._seed_database()
-            
         except Exception as e:
             print(f"❌ [Neo4j] 连接失败: {e}")
             print("   -> 请检查 Docker 是否启动: docker ps")

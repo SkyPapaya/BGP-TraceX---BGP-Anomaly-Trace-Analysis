@@ -9,6 +9,14 @@ import os
 import json
 import time
 
+# 必须在其他 import 之前禁用代理并加载 .env
+for key in ('HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'):
+    os.environ.pop(key, None)
+os.environ['HF_HUB_OFFLINE'] = '1'
+
+from dotenv import load_dotenv
+load_dotenv()
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bgp_agent import BGPAgent
 from tools.project_paths import ensure_standard_layout, EVENTS_DIR
@@ -68,9 +76,12 @@ async def demo_single_alert(agent):
     elapsed = time.time() - t0
 
     result = trace.get('final_result', {})
+    attacker = result.get('most_likely_attacker', '?')
+    if attacker and attacker != '?' and not str(attacker).startswith('AS'):
+        attacker = f'AS{attacker}'
     print(f"\n  ┌─ 溯源结论")
     print(f"  ├─ 判定: {result.get('status', '?')}")
-    print(f"  ├─ 攻击者: AS{result.get('most_likely_attacker', '?')}")
+    print(f"  ├─ 攻击者: {attacker}")
     print(f"  ├─ 置信度: {result.get('confidence', '?')}")
     print(f"  ├─ 推理轮次: {len(trace.get('chain_of_thought', []))}")
     print(f"  └─ 耗时: {elapsed:.1f}s")
@@ -137,13 +148,18 @@ async def demo_batch_forensics(agent):
 
     result = trace.get('final_result', {})
     rag_diag = trace.get('rag_diagnostics', {})
+    attacker = result.get('most_likely_attacker', '?')
+    if attacker and attacker != '?' and not str(attacker).startswith('AS'):
+        attacker = f'AS{attacker}'
 
     print(f"\n  ┌─ 批量溯源结论")
     print(f"  ├─ 判定: {result.get('status', '?')}")
-    print(f"  ├─ 攻击者: AS{result.get('most_likely_attacker', '?')}")
+    print(f"  ├─ 攻击者: {attacker}")
     print(f"  ├─ 置信度: {result.get('confidence', '?')}")
-    print(f"  ├─ RAG 共识率: {rag_diag.get('consensus_ratio', 'N/A')}")
-    print(f"  ├─ RAG 主导类型: {rag_diag.get('dominant_type', 'N/A')}")
+    if rag_diag.get('consensus_ratio') is not None:
+        print(f"  ├─ RAG 共识率: {rag_diag.get('consensus_ratio')}")
+    if rag_diag.get('dominant_type') is not None:
+        print(f"  ├─ RAG 主导类型: {rag_diag.get('dominant_type')}")
     print(f"  ├─ 推理轮次: {len(trace.get('chain_of_thought', []))}")
     print(f"  └─ 耗时: {elapsed:.1f}s")
 
