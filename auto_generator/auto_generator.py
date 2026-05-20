@@ -1,15 +1,19 @@
+import argparse
 import asyncio
 import json
 import random
 import os
 import sys
 import aiofiles
+from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from tqdm.asyncio import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tools.config_loader import get_entities
 from tools.project_paths import FULL_ATTACK_CASES_FILE
+
+load_dotenv()
 
 # --- 1. Configuration ---
 API_KEY = os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY", "")
@@ -158,5 +162,13 @@ class AttackDataGenerator:
         print(f"✅ Completed! Generated {valid_count} cases. Saved to: {OUTPUT_FILE}")
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="生成 full_attack_cases.jsonl 供 build_vector_db 使用")
+    parser.add_argument(
+        "--count",
+        type=int,
+        default=500,
+        help="生成条数（默认 500，可先 100～200 试跑）",
+    )
+    args = parser.parse_args()
     generator = AttackDataGenerator()
-    asyncio.run(generator.run(count=500))
+    asyncio.run(generator.run(count=args.count))

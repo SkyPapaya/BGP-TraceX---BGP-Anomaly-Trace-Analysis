@@ -1,6 +1,7 @@
 import os
 import json
 import sys
+from collections import Counter
 
 # 尝试导入 Graph RAG 模块 (用于连接 Neo4j)
 # 确保 tools 目录在 python 路径下
@@ -17,7 +18,7 @@ try:
     from tools.authority import AuthorityValidator
     from tools.geo import GeoConflictChecker
     from tools.topology import TopologyInspector
-    from tools.config_loader import get_risk_asns
+    from tools.config_loader import get_risk_asns, get_tier1_asns
     ONLINE_AVAILABLE = True
 except ImportError:
     ONLINE_AVAILABLE = False
@@ -65,6 +66,9 @@ class BGPToolKit:
         elif tool_name == "topology_check":
             return self.topology_check(context, is_batch=is_batch)
 
+        elif tool_name == "forgery_check":
+            return self.forgery_check(context, is_batch=is_batch)
+
         else:
             return f"Error: Tool '{tool_name}' is not supported."
 
@@ -80,7 +84,7 @@ class BGPToolKit:
             return self._path_forensics_batch(context)
 
         as_path = context.get("as_path", "")
-        expected_origin = context.get("expected_origin", "")
+        expected_origin = (context.get("expected_origin") or "").strip()
 
         if not as_path:
             return "ERROR: AS_PATH is empty in context."
@@ -98,17 +102,25 @@ class BGPToolKit:
             report = f"[Path Forensics Report]\n"
             report += f"- Analyzed Path sequence: {path_list}\n"
             report += f"- Observed Origin (Last Hop): AS{observed_origin}\n"
-            report += f"- Expected Owner: AS{expected_origin}\n"
+            if expected_origin:
+                report += f"- Expected Owner (若提供): AS{expected_origin}\n"
+            else:
+                report += "- Expected Owner: （观测未提供，请用 authority_check/RPKI 判断合法性）\n"
 
-            if str(observed_origin) != str(expected_origin):
+            if expected_origin and str(observed_origin) != str(expected_origin):
                 report += f"\n🚨 [CRITICAL FINDING]: Origin Mismatch!\n"
                 report += f"The prefix is being originated by AS{observed_origin}, but belongs to AS{expected_origin}.\n"
                 report += f"-> CONCLUSION: AS{observed_origin} is the PRIMARY SUSPECT (Attacker).\n"
                 report += f"-> ACTION: Check if AS{observed_origin} has valid authorization (ROA). If not, this is a Hijack."
-            else:
+            elif expected_origin:
                 report += f"\n✅ [STATUS]: Origin matches expected owner.\n"
                 report += f"-> NEXT STEP: Check for Route Leak. The Upstream is AS{upstream_neighbor}.\n"
                 report += f"   If AS{upstream_neighbor} is a Peer/Customer leaking routes to a Provider, then AS{upstream_neighbor} is the culprit."
+            else:
+                report += (
+                    f"\nℹ️ [STATUS]: 仅观测到起源 AS{observed_origin}，无事先给定的合法 Owner 对比。\n"
+                    f"-> NEXT: 调用 authority_check 或查阅 RPKI/IRR 判断 AS{observed_origin} 是否有权宣告该前缀。"
+                )
 
             return report
 
@@ -125,10 +137,11 @@ class BGPToolKit:
         suspect_counts = {}  # AS -> 作为嫌疑人出现的次数
         leak_suspect_counts = {}  # AS -> 作为 Route Leak 嫌疑人的次数
         benign_count = 0
+        direct_benign_count = 0
 
         for i, u in enumerate(updates):
             as_path = u.get("as_path", "")
-            expected_origin = u.get("expected_origin", "")
+            expected_origin = (u.get("expected_origin") or "").strip()
 
             if not as_path:
                 reports.append(f"[Update {i+1}] ERROR: AS_PATH 为空")
@@ -142,21 +155,30 @@ class BGPToolKit:
                     continue
 
                 observed_origin = path_list[-1]
-                upstream = path_list[-2] if len(path_list) > 1 else None
+                path_len = len(path_list)
+                upstream = path_list[-2] if path_len > 1 else None
 
                 prefix = u.get("prefix", "?")
-                line = f"[Update {i+1}] prefix={prefix} | path={path_list} | origin=AS{observed_origin} | expected=AS{expected_origin}"
+                exp_disp = expected_origin if expected_origin else "(未提供)"
+                line = f"[Update {i+1}] prefix={prefix} | path={path_list} | origin=AS{observed_origin} | expected={exp_disp}"
 
-                if str(observed_origin) != str(expected_origin):
+                if expected_origin and str(observed_origin) != str(expected_origin):
                     line += " -> 🚨 SUSPECT: AS" + observed_origin
                     suspect_counts[observed_origin] = suspect_counts.get(observed_origin, 0) + 1
-                else:
-                    if upstream:
+                elif expected_origin:
+                    if path_len <= 2:
+                        line += " -> ✅ BENIGN: 合法 origin，且仅存在直连上游传播"
+                        benign_count += 1
+                        direct_benign_count += 1
+                    elif upstream:
                         line += f" -> ⚠️ LEAK_CHECK: 上游 AS{upstream} 可能是 Leaker"
                         leak_suspect_counts[upstream] = leak_suspect_counts.get(upstream, 0) + 1
                     else:
                         line += " -> ✅ BENIGN"
                         benign_count += 1
+                else:
+                    line += " -> ℹ️ 无 expected_origin：不作 mismatch 定罪，请结合 RPKI 汇总"
+                    benign_count += 1
 
                 reports.append(line)
             except Exception as e:
@@ -176,9 +198,82 @@ class BGPToolKit:
             for asn, cnt in sorted_leak:
                 agg += f"  AS{asn}: {cnt} 次\n"
         agg += f"\n良性 update 数量: {benign_count}/{len(updates)}\n"
+        agg += f"直连良性 update 数量: {direct_benign_count}/{len(updates)}\n"
         agg += "\n建议: 出现频次最高的嫌疑 AS 最有可能是攻击者；若多条指向同一 AS，置信度更高。"
 
         return "\n".join(reports) + agg
+
+    def forgery_check(self, context, is_batch=False):
+        """识别路径伪造 / fake adjacency。"""
+        if is_batch:
+            return self._forgery_check_batch(context)
+        return self._forgery_check_batch({"updates": [context]})
+
+    def _forgery_check_batch(self, context):
+        updates = context.get("updates", [])
+        if not updates:
+            return "ERROR: updates 为空。"
+
+        tier1 = get_tier1_asns() if ONLINE_AVAILABLE else set()
+        candidate_counts = Counter()
+        strong_forgery = 0
+        ambiguous = 0
+        benign_like = 0
+        lines = []
+
+        for i, u in enumerate(updates, 1):
+            path_list = [p.strip() for p in str(u.get("as_path", "")).replace(",", " ").split() if p.strip().isdigit()]
+            expected_origin = str(u.get("expected_origin", "")).strip()
+            observed_origin = path_list[-1] if path_list else ""
+            prefix = u.get("prefix", "?")
+
+            if not path_list:
+                lines.append(f"[Update {i}] ERROR: 无有效 ASN")
+                continue
+
+            if expected_origin and observed_origin != expected_origin:
+                lines.append(f"[Update {i}] prefix={prefix} -> 跳过 forgery 检查：origin mismatch，更像 HIJACK")
+                continue
+
+            if len(path_list) <= 2:
+                benign_like += 1
+                lines.append(f"[Update {i}] prefix={prefix} | path={path_list} -> 直连传播，偏 BENIGN")
+                continue
+
+            tail = path_list[:-1]
+            suspect = ""
+            reason = ""
+            # 优先抓靠近 origin 的非 Tier-1 插入点，len>=4 时通常是更强的伪造特征
+            for asn in reversed(tail):
+                if asn != expected_origin and asn not in tier1:
+                    suspect = asn
+                    break
+            if not suspect:
+                suspect = path_list[-2]
+
+            if len(path_list) >= 4:
+                strong_forgery += 1
+                reason = "强伪造信号：合法 origin 前存在额外稳定跳点/伪造邻接"
+            else:
+                ambiguous += 1
+                reason = "弱伪造信号：合法 origin 前存在稳定中间 AS，但与 LEAK 仍有歧义"
+
+            candidate_counts[suspect] += 1
+            lines.append(
+                f"[Update {i}] prefix={prefix} | path={path_list} -> FORGERY_CHECK suspect=AS{suspect} | {reason}"
+            )
+
+        if not candidate_counts:
+            return "\n".join(lines + ["\n结论: 未发现足够的路径伪造信号。"])
+
+        suspect, count = candidate_counts.most_common(1)[0]
+        total = sum(candidate_counts.values())
+        ratio = count / total if total else 0.0
+        verdict = "FORGERY_STRONG" if strong_forgery >= max(2, len(updates) // 2) else "FORGERY_POSSIBLE"
+        lines.append(
+            f"\n汇总: forgery_candidate=AS{suspect}; count={count}; ratio={ratio:.2f}; strong={strong_forgery}; ambiguous={ambiguous}; benign_like={benign_like}; verdict={verdict}"
+        )
+        return "\n".join(lines)
 
     # ==========================================
     # 🕸️ Graph RAG (图谱分析)
@@ -215,7 +310,9 @@ class BGPToolKit:
         if ONLINE_AVAILABLE:
             return AuthorityValidator().run(context)
         detected = context.get("detected_origin")
-        expected = context.get("expected_origin")
+        expected = (context.get("expected_origin") or "").strip()
+        if not expected:
+            return AuthorityValidator().run(context)
         if str(detected) != str(expected):
             return f"RPKI Status: INVALID. AS{detected} is NOT authorized (offline fallback)."
         return "RPKI Status: VALID."
@@ -237,9 +334,21 @@ class BGPToolKit:
                     invalid_asns[origin] = invalid_asns.get(origin, 0) + 1
             else:
                 detected = u.get("detected_origin")
-                expected = u.get("expected_origin")
+                expected = (u.get("expected_origin") or "").strip()
                 prefix = u.get("prefix", "?")
-                if str(detected) != str(expected):
+                if not expected:
+                    res = AuthorityValidator().run(
+                        {"prefix": prefix, "as_path": str(u.get("as_path", "") or "")}
+                    )
+                    lines.append(f"[Update {i+1}] {res}")
+                    if "INVALID" in res:
+                        origin = detected or (
+                            str(u.get("as_path", "")).replace(",", " ").split()[-1]
+                            if u.get("as_path")
+                            else "?"
+                        )
+                        invalid_asns[origin] = invalid_asns.get(origin, 0) + 1
+                elif str(detected) != str(expected):
                     lines.append(f"[Update {i+1}] INVALID: AS{detected} 非法宣告 {prefix}")
                     invalid_asns[detected] = invalid_asns.get(detected, 0) + 1
                 else:

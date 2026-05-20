@@ -2,10 +2,25 @@
 __pycache__/
 *.py[codz]
 *$py.class
-#specific file
+# specific file
 wandio-4.2.6-1
 libbgpstream-2.2.0
-rag_db
+test-api.py
+# 非核心文件（资料、绘图、辅助工具）
+file/
+scripts/plot_*.py
+scripts/backfill_from_raw_bgplay.py
+scripts/prepare_top10_high_risk_eval.py
+rag_db/
+# local fonts / image assets
+fonts/
+!fonts/.gitkeep
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.svg
 *.bin
 *.bz2
 *.txt
@@ -14,11 +29,15 @@ rag_db
 # data/report outputs (generated)
 data/events/
 data/experiments/real_events/
+data/rag_cases_from_events.jsonl
 *.gz
 report/forensics/
 report/evaluation/
 report/*.json
 report/*.png
+
+#文档
+docs/
 
 # C extensions
 *.so
@@ -153,6 +172,8 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+!.env.example
 .envrc
 .venv
 env/

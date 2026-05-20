@@ -4,16 +4,38 @@ BGP Updates 抓取与观测过滤模块
 并按论文四步法筛选可疑 updates。
 参考: https://stat.ripe.net/docs/02.data-api/bgplay.html
 """
-import requests
+import json
 import logging
-from datetime import datetime
 from typing import List, Dict, Optional
+from urllib.parse import urlencode
+
 from .config_loader import get_known_prefix_origin, get_tier1_asns
+from .curl_fetch import curl_available, curl_download
 
 logger = logging.getLogger("UpdateFetcher")
 
 RIPESTAT_BGPLAY = "https://stat.ripe.net/data/bgplay/data.json"
 SOURCE_APP = "bgp-anomaly-analysis-tool"
+
+
+def _ipv4_prefix_mask_len(prefix: str) -> Optional[int]:
+    """返回 IPv4 CIDR 掩码长度；非 IPv4 CIDR 返回 None。"""
+    p = (prefix or "").strip()
+    if not p or "/" not in p or ":" in p:
+        return None
+    try:
+        return int(p.split("/", 1)[1].strip())
+    except ValueError:
+        return None
+
+
+def _prefix_too_broad_for_ris_mrt(prefix: str, min_len: int = 24) -> bool:
+    """
+    掩码长度 < min_len 的前缀（如 /8、/18）在 RIS MRT 全文件解析中命中面大，
+    易长时间阻塞、占大量内存或异常退出；auto 模式下应改用 RIPEstat。
+    """
+    ln = _ipv4_prefix_mask_len(prefix)
+    return ln is not None and ln < min_len
 
 
 def fetch_bgp_updates(prefix: str, start_time: str, end_time: str) -> Dict:
@@ -24,23 +46,32 @@ def fetch_bgp_updates(prefix: str, start_time: str, end_time: str) -> Dict:
     :param end_time: 结束时间 ISO8601
     :return: BGPlay API 返回的 data 部分，含 initial_state, events, nodes 等
     """
-    params = {
-        "resource": prefix,
-        "starttime": start_time,
-        "endtime": end_time,
-        "sourceapp": SOURCE_APP,
-    }
-    try:
-        resp = requests.get(RIPESTAT_BGPLAY, params=params, timeout=60)
-        resp.raise_for_status()
-        data = resp.json()
-        if data.get("status") != "ok":
-            logger.warning(f"BGPlay 返回非 ok: {data.get('message')}")
-            return {}
-        return data.get("data", {})
-    except Exception as e:
-        logger.error(f"BGPlay 请求失败: {e}")
+    query = urlencode(
+        {
+            "resource": prefix,
+            "starttime": start_time,
+            "endtime": end_time,
+            "sourceapp": SOURCE_APP,
+        }
+    )
+    url = f"{RIPESTAT_BGPLAY}?{query}"
+    if not curl_available():
+        logger.error("未找到 curl，无法请求 BGPlay（请安装 curl 并加入 PATH）")
         return {}
+    ok, _rc, body, _err = curl_download(
+        url, max_time_sec=90, connect_timeout_sec=20
+    )
+    if not ok or not body:
+        return {}
+    try:
+        data = json.loads(body.decode("utf-8"))
+    except json.JSONDecodeError as e:
+        logger.error("BGPlay 响应非 JSON: %s", e)
+        return {}
+    if data.get("status") != "ok":
+        logger.warning("BGPlay 返回非 ok: %s", data.get("message"))
+        return {}
+    return data.get("data", {}) or {}
 
 
 def _parse_path(path) -> List[str]:
@@ -225,7 +256,10 @@ def fetch_and_filter(
     if source == "ripestat":
         return _try_ripestat()
 
-    # auto: 优先 RIS，失败则 RIPEstat
+    # auto: 优先 RIS，失败则 RIPEstat；过宽 IPv4 前缀跳过 RIS（见 _prefix_too_broad_for_ris_mrt）
+    if _prefix_too_broad_for_ris_mrt(prefix):
+        logger.info("前缀较宽，auto 跳过 RIS MRT，使用 RIPEstat: %s", prefix)
+        return _try_ripestat()
     susp, raw, ds = _try_ris()
     if susp is not None and ds == "ris_mrt":
         return susp, raw or {}, ds
