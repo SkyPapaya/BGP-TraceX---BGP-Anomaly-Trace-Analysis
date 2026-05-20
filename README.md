@@ -31,27 +31,43 @@ BGP-TraceX 3.0 是一个面向 BGP 异常归因的研究型系统，核心目标
 ```text
 .
 ├── bgp_agent.py                         # 核心溯源 Agent
-├── comparative_experiment.py           # M1/M2/M3/M4 对比实验主程序
-├── build_vector_db.py                  # 构建 Chroma 向量库
-├── auto_generator/auto_generator.py    # 生成合成 RAG 案例
+├── comparative_experiment.py            # M1/M2/M3/M4 对比实验主程序
+├── build_vector_db.py                   # 构建 Chroma 向量库
+├── auto_generator/auto_generator.py     # LLM 驱动的合成案例生成器
 ├── scripts/
-│   ├── step1_collect_events.py         # 真实事件抓取与过滤
-│   ├── build_rag_from_events.py        # 从 Step1 输出构建真实事件 RAG 语料
-│   ├── run_comparative_real_pipeline.py
-│   ├── run_comparative_synthetic.py
-│   ├── run_synthetic_metrics_experiment.py
-│   ├── generate_benchmark_synthetic_cases.py
-│   ├── plot_real_synthetic_method_figures.py
-│   ├── prepare_top10_high_risk_eval.py
-│   └── run_case_catalog_test.py
+│   ├── step1_collect_events.py          # 真实事件抓取与过滤
+│   ├── build_rag_from_events.py         # 从 Step1 输出构建真实事件 RAG 语料
+│   ├── run_comparative_real_pipeline.py # 一键跑真实事件对比实验
+│   ├── run_comparative_synthetic.py     # 跑模拟四方法对比
+│   ├── run_synthetic_metrics_experiment.py # 跑模拟指标实验
+│   ├── generate_benchmark_synthetic_cases.py # 生成模拟基准案例
+│   ├── plot_real_synthetic_method_figures.py # 绘制真/模拟对比图
+│   ├── plot_comparative_figures.py      # 绘制对比实验图
+│   ├── plot_rag_recall_type_accuracy.py # 绘制 RAG 召回/类型准确率图
+│   ├── prepare_top10_high_risk_eval.py  # 准备 Top10 高风险评估集
+│   ├── run_case_catalog_test.py         # 案例目录测试
+│   ├── validate_case_catalog.py         # 案例目录校验
+│   ├── rerun_single_case_full_system.py # 单案例全系统重跑
+│   ├── run_feasibility_experiment.py    # 可行性实验
+│   ├── compare_trace_accuracy.py        # 溯源准确性对比
+│   └── backfill_from_raw_bgplay.py     # 从 BGPplay 原始数据回填
 ├── tools/
-│   ├── bgp_toolkit.py                  # path_forensics / authority / forgery / graph 等工具
-│   ├── rag_manager.py
-│   ├── update_fetcher.py
-│   ├── ris_mrt_fetcher.py
-│   ├── authority.py
-│   ├── eval_updates_sample.py
-│   └── project_paths.py
+│   ├── bgp_toolkit.py                   # 工具调度核心（7 个工具统一入口）
+│   ├── rag_manager.py                   # ChromaDB 向量检索管理
+│   ├── project_paths.py                 # 项目路径常量
+│   ├── config_loader.py                 # 加载风险 AS / Tier-1 / 实体配置
+│   ├── authority.py                     # RPKI/ROA 授权校验（RIPEstat API）
+│   ├── topology.py                      # 拓扑合规检查（valley-free 策略）
+│   ├── geo.py                           # 地理位置冲突检查
+│   ├── neighbor.py                      # 上游邻居信誉
+│   ├── stability.py                     # 路由稳定性检查
+│   ├── graph_rag.py                     # Neo4j 图 RAG 集成
+│   ├── data_provider.py                 # AS 信息查询
+│   ├── gen_forensics_data.py            # 取证数据生成
+│   ├── update_fetcher.py                # BGP 更新抓取
+│   ├── ris_mrt_fetcher.py               # RIS MRT 数据抓取
+│   ├── eval_updates_sample.py           # 高风险更新采样
+│   └── curl_fetch.py                    # HTTP 请求封装
 ├── data/
 │   ├── test_events.json
 │   ├── benchmark_events_real.json
