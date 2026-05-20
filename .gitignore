@@ -2,9 +2,15 @@
 __pycache__/
 *.py[codz]
 *$py.class
-#specific file
+# specific file
 wandio-4.2.6-1
 libbgpstream-2.2.0
+test-api.py
+# 非核心文件（资料、绘图、辅助工具）
+file/
+scripts/plot_*.py
+scripts/backfill_from_raw_bgplay.py
+scripts/prepare_top10_high_risk_eval.py
 rag_db/
 # local fonts / image assets
 fonts/
@@ -29,6 +35,9 @@ report/forensics/
 report/evaluation/
 report/*.json
 report/*.png
+
+#文档
+docs/
 
 # C extensions
 *.so
